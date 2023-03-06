@@ -1,5 +1,6 @@
 # Whole-body PBPK model for Doxorubicin 
-# Volume
+# unit: 
+# time:h dose:mg L/h/mg/mol 
 rm(list=ls(all=TRUE))
 
 #REQUIRED PACKAGES:
@@ -11,14 +12,13 @@ require(deSolve)
 require(plotly)
 require(openxlsx)
 require(ggquickeda)
+
 {
   #Scenario set-------------------------------------------------------
-  t_end <- 3 #[h] time of the end of simulation
-  times <- seq(0, t_end, by = 0.01) #time of simulation
+  t_end <- 8 #[h] time of the end of simulation
+  times <- seq(0, t_end, by = 0.1) #time of simulation
   oral_dose <- 0 #[mg] oral bolus dose
-  inf_dose <- 60 * BSA #[mg] infusion dose according to Pfizer guidance : https://www.pfizermedicalinformation.com/en-us/doxorubicin/dosage-admin
-  inf_time <- 1/30 #[h] infusion time
-  
+
   #Population set-------------------------------------------------------
   age <- 25 #the age of chosen sample
   gender <- 'male'
@@ -28,6 +28,9 @@ require(ggquickeda)
   BSA <- weight ^ 0.425 * height ^ 0.725 * 0.007184 #[m2] Body surface area according to [DuBois-DuBois 1916]
   CO  <- 1.1 * BSA - 0.05 * age + 5.5 #[L/min] cardiac output
   CO <- CO * 60 #[L/h] cardiac output units change from [L/min] to [L/h]
+  
+  inf_dose <- 60 * BSA #[mg] infusion dose according to Pfizer guidance : https://www.pfizermedicalinformation.com/en-us/doxorubicin/dosage-admin
+  inf_time <- 1/30 #[h] infusion time
   
   #SEX DEPENDENT BLOOD FLOWS for healthy population according to [Simycp Simulator v.16]
   # BLOOD FLOWS [L/h] -------------------------------------------------------
@@ -377,27 +380,97 @@ require(ggquickeda)
   #mtDNA_endo <- 2.15 * 0.001 * 0.01 / Vhe
   
   #the concentration of cardiolipin derive from [Daniel 2002]
-  MW_cardiolipin <- 1300 #g/mol
-  content_cardiolipin <- 43.8 #umol/l from rat tissue
-  cardiolipin <- 56.94  # mg/l (MW_cardiolipin * content_cardiolipin)
+  #MW_cardiolipin <- 1300 #g/mol
+  #content_cardiolipin <- 43.8 #umol/l from rat tissue
+  #cardiolipin <- 56.94  # mg/l (MW_cardiolipin * content_cardiolipin)
   
   #DNA concentration (6pg = 6 * 10^-9 mg DNA per cell)  # DNA and mtDNA concentration, assume epi:mid:endo = 0.2 : 0.3 : 0.5 [DOI:10.6000/1927-5129.2017.13.35]
-  DNA_other <- cell_concentration_other * 6 * 10 ^ -9
-  DNA_myo <- cell_concentration_myo * 6 * 10 ^ -9
-
-  mtDNA_other <- DNA_other * 0.01
-  mtDNA_myo <- DNA_myo * 0.01
+  #DNA_other <- cell_concentration_other * 6 * 10 ^ -9
+  #DNA_myo <- cell_concentration_myo * 6 * 10 ^ -9
   
-  Kd_DNA <- 0.0000002  # 200nM to Molar
-  Kd_mtDNA <- 0.0000001 # 100nM to Molar
-  Kd_cardiolipin <- 0.0000004 # 400nM to Molar
+  DNA_li <- 0.0000237 #mol/L 
+  DNA_he <- 0.0000083 #mol/L 
+  DNA_ki <- 0.0000162 #mol/L 
+  DNA_bo <- 0.0000191 #mol/L 
+  DNA_gu <- 0.0000252 #mol/L 
+  
+  DNA_mu <- 0.0000045 #mol/L Slowly perfused organs
+  DNA_ad <- 0.0000045 #mol/L 
+  DNA_sk <- 0.0000045 #mol/L 
+  DNA_sp <- 0.0000045 #mol/L 
+  DNA_pa <- 0.0000045 #mol/L 
+  DNA_gu <- 0.0000045 #mol/L 
+
+  DNA_br <- 0.000015 #mol/L Rapidly perfused organ
+  DNA_lu <- 0.000015 #mol/L 
+  
+  Cardiolipin_li <- 0.0000446 #mol/L 
+  Cardiolipin_he <- 0.0000438 #mol/L 
+  Cardiolipin_ki <- 0.0000523 #mol/L 
+  Cardiolipin_bo <- 0.000025 #mol/L 
+  Cardiolipin_gu <- 0.000025 #mol/L 
+  
+  Cardiolipin_ad <- 0.000015 #mol/L Slowly perfused
+  Cardiolipin_mu <- 0.000015 #mol/L Slowly perfused
+  Cardiolipin_sk <- 0.000015 #mol/L Slowly perfused
+  Cardiolipin_sp <- 0.000015 #mol/L Slowly perfused
+  Cardiolipin_pa <- 0.000015 #mol/L Slowly perfused
+  
+  Cardiolipin_br <- 0.000030 #mol/L Rapidly perfused
+  Cardiolipin_lu <- 0.000030 #mol/L Rapidly perfused
+  
+  mtDNA_li <- 0.00000237 #mol/L assume basesd on DNA concentration
+  mtDNA_he <- 0.0000083 #mol/L 
+  mtDNA_ki <- 0.00000162 #mol/L 
+  mtDNA_bo <- 0.00000191 #mol/L 
+  mtDNA_gu <- 0.00000252 #mol/L 
+  
+  mtDNA_mu <- 0.00000045 #mol/L
+  mtDNA_ad <- 0.00000045 #mol/L 
+  mtDNA_sk <- 0.00000045 #mol/L 
+  mtDNA_sp <- 0.00000045 #mol/L 
+  mtDNA_pa <- 0.00000045 #mol/L 
+  mtDNA_gu <- 0.00000045 #mol/L 
+  
+  mtDNA_br <- 0.0000015 #mol/L 
+  mtDNA_lu <- 0.0000015 #mol/L 
+  
+  DNA_other <- 0.05 * DNA_he
+  DNA_myo <- 0.95 * DNA_he
+
+  mtDNA_other <- 0.05 * mtDNA_he
+  mtDNA_myo <- 0.95 * mtDNA_he
+    
+  Cardiolipin_other <- 0.05 * Cardiolipin_he
+  Cardiolipin_myo <- 0.95 * Cardiolipin_he
+  
+  Kd_DNA <- 0.00000323 # 3.23 umol/L = 0.00000323 mol/L = 0.00323 mM = 3.23 x 10^-6 M
+  Koff_DNA <- 30564 #509.4 min-1 = 30564 h-1
+  Kon_DNA <- Koff_DNA / Kd_DNA
+
+  Kd_mtDNA <- 0.000001 # 100nM to Molar (assume)
+  Koff_mtDNA <- 30564 #509.4 min-1 = 30564 h-1
+  Kon_mtDNA <- Koff_mtDNA / Kd_mtDNA
+
+  Kd_cardiolipin <- 0.000004 # 400nM to Molar (assume)
+  Koff_cardiolipin <- 30564 #509.4 min-1 = 30564 h-1
+  Kon_cardiolipin <- Koff_cardiolipin / Kd_cardiolipin
+  
+  kon1 <- Kon_DNA
+  koff1 <- Koff_DNA
+  
+  kon2 <- Kon_cardiolipin
+  koff2 <- Koff_cardiolipin
+  
+  kon3 <- Kon_mtDNA
+  koff3 <- Koff_mtDNA
 
   #PER：cytoplasmic membrane permeability coefficient
   PER <- 0.0756  # cm/h （huahe Unpublished）
   
   #surface area -------------------------------------------------------
   SA_other<- (cell_amount_other * MSA) / (10 ^ 8) #[cm^2]
-  SA_myo <- (cell_amount_mid * MSA) / (10 ^ 8) #[cm^2]
+  SA_myo <- (cell_amount_myo * MSA) / (10 ^ 8) #[cm^2]
   SA_bloodcell <- 25800 #[dm2] [Huahe paper]
   
   # Tissue intracellular surface area (from simcyp screenshot) units: cm^2
@@ -476,7 +549,6 @@ require(ggquickeda)
   # MODEL -------------------------------------------------------------------
   parameters <- c(
     BP = BP,
-    Kpec = Kpec,
     Kplu = Kplu,
     Kpli = Kpli,
     Kpad = Kpad,
@@ -494,7 +566,6 @@ require(ggquickeda)
     fup = fup,
     funionized_ic = funionized_ic,
     funionized_ec = funionized_ec,
-    fu_ec = fu_ec,
     CL_renal = CL_renal,
     CL_hepatic = CL_hepatic
   )
@@ -516,7 +587,7 @@ require(ggquickeda)
     Apa = 0,
     Ave = 0,
     Aar = 0,
-    
+    Ahe_ec = 0,
     Aad_ec = 0,
     Abo_ec = 0,
     Abr_ec = 0,
@@ -527,9 +598,7 @@ require(ggquickeda)
     Amu_ec = 0,
     Ask_ec = 0,
     Asp_ec = 0,
-    Ahe_ec = 0,
     Apa_ec = 0,
-    
     Aother_ict = 0,
     Amyo_ict = 0,
     Aad_ict = 0,
@@ -545,110 +614,109 @@ require(ggquickeda)
     Apa_ict = 0,
     Abloodcell = 0,
     
-    Cother_Rf = 0,
+    Cother_icfree = 0,
     Cother_E1R = 0,
-    Cother_E1 = ,
+    Cother_E1 = DNA_other,
     Cother_E2R = 0,
-    Cother_E2 = ,
+    Cother_E2 = Cardiolipin_other,
     Cother_E3R = 0,
-    Cother_E3 = ,
+    Cother_E3 = mtDNA_other,
     
-    
-    Cmyo_Rf = 0,
+    Cmyo_icfree = 0,
     Cmyo_E1R = 0,
-    Cmyo_E1 = ,
+    Cmyo_E1 = DNA_myo,
     Cmyo_E2R = 0,
-    Cmyo_E2 = ,
+    Cmyo_E2 = Cardiolipin_myo,
     Cmyo_E3R = 0,
-    Cmyo_E3 = ,
+    Cmyo_E3 = mtDNA_myo,
     
-    Cad_Rf = 0,
+    Cad_icfree = 0,
     Cad_E1R = 0,
-    Cad_E1 = ,
+    Cad_E1 = DNA_ad,
     Cad_E2R = 0,
-    Cad_E2 = ,
+    Cad_E2 = Cardiolipin_ad,
     Cad_E3R = 0,
-    Cad_E3 = ,
+    Cad_E3 = mtDNA_ad,
     
-    Cbo_Rf = 0,
+    Cbo_icfree = 0,
     Cbo_E1R = 0,
-    Cbo_E1 = ,
+    Cbo_E1 = DNA_bo,
     Cbo_E2R = 0,
-    Cbo_E2 = ,
+    Cbo_E2 = Cardiolipin_bo,
     Cbo_E3R = 0,
-    Cbo_E3 = ,
+    Cbo_E3 = mtDNA_bo,
     
-    Cbr_Rf = 0,
+    Cbr_icfree = 0,
     Cbr_E1R = 0,
-    Cbr_E1 = ,
+    Cbr_E1 = DNA_br,
     Cbr_E2R = 0,
-    Cbr_E2 = ,
+    Cbr_E2 = Cardiolipin_br,
     Cbr_E3R = 0,
-    Cbr_E3 = ,
+    Cbr_E3 = mtDNA_br,
     
-    Cgu_Rf = 0,
+    Cgu_icfree = 0,
     Cgu_E1R = 0,
-    Cgu_E1 = ,
+    Cgu_E1 = DNA_gu,
     Cgu_E2R = 0,
-    Cgu_E2 = ,
+    Cgu_E2 = Cardiolipin_gu,
     Cgu_E3R = 0,
-    Cgu_E3 = ,
+    Cgu_E3 = mtDNA_gu,
     
-    Cki_Rf = 0,
+    Cki_icfree = 0,
     Cki_E1R = 0,
-    Cki_E1 = ,
+    Cki_E1 = DNA_ki,
     Cki_E2R = 0,
-    Cki_E2 = ,
+    Cki_E2 = Cardiolipin_ki,
     Cki_E3R = 0,
-    Cki_E3 = ,
+    Cki_E3 = mtDNA_ki,
     
-    Cli_Rf = 0,
+    Cli_icfree = 0,
     Cli_E1R = 0,
-    Cli_E1 = ,
+    Cli_E1 = DNA_li,
     Cli_E2R = 0,
-    Cli_E2 = ,
+    Cli_E2 = Cardiolipin_li,
     Cli_E3R = 0,
-    Cli_E3 = ,
+    Cli_E3 = mtDNA_li,
     
-    Clu_Rf = 0,
+    Clu_icfree = 0,
     Clu_E1R = 0,
-    Clu_E1 = ,
+    Clu_E1 = DNA_lu,
     Clu_E2R = 0,
-    Clu_E2 = ,
+    Clu_E2 = Cardiolipin_lu,
     Clu_E3R = 0,
-    Clu_E3 = ,
+    Clu_E3 = mtDNA_lu,
     
-    Cmu_Rf = 0,
+    Cmu_icfree = 0,
     Cmu_E1R = 0,
-    Cmu_E1 = ,
+    Cmu_E1 = DNA_mu,
     Cmu_E2R = 0,
-    Cmu_E2 = ,
+    Cmu_E2 = Cardiolipin_mu,
     Cmu_E3R = 0,
-    Cmu_E3 = ,
+    Cmu_E3 = mtDNA_mu,
     
-    Csk_Rf = 0,
+    Csk_icfree = 0,
     Csk_E1R = 0,
-    Csk_E1 = ,
+    Csk_E1 = DNA_sk,
     Csk_E2R = 0,
-    Csk_E2 = ,
+    Csk_E2 = Cardiolipin_sk,
     Csk_E3R = 0,
-    Csk_E3 = ,
+    Csk_E3 = mtDNA_sk,
     
-    Csp_Rf = 0,
+    Csp_icfree = 0,
     Csp_E1R = 0,
-    Csp_E1 = ,
+    Csp_E1 = DNA_sp,
     Csp_E2R = 0,
-    Csp_E2 = ,
+    Csp_E2 = Cardiolipin_sp,
     Csp_E3R = 0,
-    Csp_E3 = ,
+    Csp_E3 = mtDNA_sp,
     
-    Cpa_Rf = 0,
+    Cpa_icfree = 0,
     Cpa_E1R = 0,
-    Cpa_E1 = ,
+    Cpa_E1 = DNA_pa,
     Cpa_E2R = 0,
-    Cpa_E2 = ,
+    Cpa_E2 = Cardiolipin_pa,
     Cpa_E3R = 0,
-    Cpa_E3 = ,)
+    Cpa_E3 = mtDNA_pa)
   
   ###Differential equations - mg/h/L -------------------------------------------------------
   PBPKModel = function(times, state, parameters) {
@@ -693,8 +761,8 @@ require(ggquickeda)
       Csp_ec <- Asp_ec / Vsp_ec
       Cpa_ec <- Apa_ec / Vpa_ec
       
-      Cother_ict <- Aendo_ict / Vother_ic #heart other organ intracellular total concentration
-      Cmyo_ict <- Amid_ict / Vmyo_ic #heart myo intracellular total concentration
+      Cother_ict <- Aother_ict / Vother_ic #heart other organ intracellular total concentration
+      Cmyo_ict <- Amyo_ict / Vmyo_ic #heart myo intracellular total concentration
       Cad_ict <- Aad_ict / Vad_ic
       Cbo_ict <- Abo_ict / Vbo_ic
       Cbr_ict <- Abr_ict / Vbr_ic
@@ -706,7 +774,7 @@ require(ggquickeda)
       Csk_ict <- Ask_ict / Vsk_ic
       Csp_ict <- Asp_ict / Vsp_ic
       Cpa_ict <- Apa_ict / Vpa_ic
-
+      
       ## rates of changes -------------------------------------------------------
       dINFUSION <- -inf
       dAad <- Qad * (Carterial - Cadipose / Kpad * BP) #adipose
@@ -721,12 +789,12 @@ require(ggquickeda)
       dAsp <- Qsp * (Carterial - Cspleen / Kpsp * BP)  	#spleen
       dAhe <- Qhe * (Carterial - (Cheart/ Kphe) * BP) #heart
       dApa <- Qpa * (Carterial - Cpa / Kppa * BP)  		#pancreas
-      dAve <- inf + Qad * (Cadipose / Kpad * BP) + Qbo * (Cbone / Kpbo * BP) + Qbr * (Cbrain / Kpbr * BP) + Qki* (Ckidney / Kpki * BP) + Qli * (Cliver / Kpli * BP) + Qmu* (Cmuscle / Kpmu * BP) + Qsk* (Cskin / Kpsk * BP)+ Qhe * (Cheart_ec / Kpec * BP) + Qpa*(Cpa / Kppa * BP) - Qlu * Cvenous - PER * SA_bloodcell * 0.1 * (Cvenous - Cbloodcell) #venous blood
+      dAve <- inf + Qad * (Cadipose / Kpad * BP) + Qbo * (Cbone / Kpbo * BP) + Qbr * (Cbrain / Kpbr * BP) + Qki* (Ckidney / Kpki * BP) + Qli * (Cliver / Kpli * BP) + Qmu* (Cmuscle / Kpmu * BP) + Qsk* (Cskin / Kpsk * BP)+ Qhe * (Che_ec / Kpec_he * BP) + Qpa*(Cpa / Kppa * BP) - Qlu * Cvenous - PER * SA_bloodcell * 0.1 * (Cvenous - Cbloodcell) #venous blood
       dAar <- Qlu * (Clung / Kplu * BP) - Qad * Carterial - Qbo * Carterial - Qbr * Carterial - Qgu * Carterial- Qki * Carterial- Qha * Carterial- Qmu * Carterial- Qsk * Carterial- Qsp * Carterial-	Qpa * Carterial 	#arterial blood
       dAbloodcell <- PER * SA_bloodcell * 0.1 * (Cvenous - Cbloodcell) + PER * SA_bloodcell * 0.1 * (Carterial - Cbloodcell)
       
       #Extracellular sub-compartment
-      dAhe_ec <- Qhe * (Carterial - (Che_ec/Kphe) * BP) - 0.001 * PER * SA_other * (Che_ec * fuec_he * funionized_ec - Cendo_icfree/(Kpec_he * Kpp) * funionized_ic ) - 0.001 * PER * SA_myo * (Che_ec * fuec_he * funionized_ec - Cmyo_icfree/(Kpec_he * Kpp) * funionized_ic ) 
+      dAhe_ec <- Qhe * (Carterial - (Che_ec/Kphe) * BP) - 0.001 * PER * SA_other * (Che_ec * fuec_he * funionized_ec - Cother_icfree/(Kpec_he * Kpp) * funionized_ic ) - 0.001 * PER * SA_myo * (Che_ec * fuec_he * funionized_ec - Cmyo_icfree/(Kpec_he * Kpp) * funionized_ic ) 
       dAad_ec <- Qad * (Carterial - (Cad_ec/Kpad) * BP) - 0.001 * PER * SA_ad * (Cad_ec * fuec_ad * funionized_ec - Cad_icfree/(Kpec_ad * Kpp) * funionized_ic)
       dAbo_ec <- Qbo * (Carterial - (Cbo_ec/Kpbo) * BP) - 0.001 * PER * SA_bo * (Cbo_ec * fuec_bo * funionized_ec - Cbo_icfree/(Kpec_bo * Kpp) * funionized_ic)
       dAbr_ec <- Qbr * (Carterial - (Cbr_ec/Kpbr) * BP) - 0.001 * PER * SA_br * (Cbr_ec * fuec_br * funionized_ec - Cbr_icfree/(Kpec_br * Kpp) * funionized_ic)
@@ -756,164 +824,163 @@ require(ggquickeda)
  
       # Intracellular binding-------------------------------------------------------
       #heart
-       #Other tissue
-       dCother_E1R = kon1 * Cother_ict * E1 - koff1 * Cother_E1R
-       dCother_E1 = - (kon1 * Cother_ict * E1 - koff1 * Cother_E1R) 
+      #Other tissue
+      dCother_E1R = kon1 * Cother_ict * DNA_other - koff1 * Cother_E1R
+      dCother_E1 = - (kon1 * Cother_ict * DNA_other - koff1 * Cother_E1R) 
       
-       dCother_E2R = kon2 * Cother_ict * E2 - koff2 * Cother_E2R 
-       dCother_E2 = - (kon2 * Cother_ict * E2 - koff2 * Cother_E2) 
+      dCother_E2R = kon2 * Cother_ict * Cardiolipin_other - koff2 * Cother_E2R 
+      dCother_E2 = - (kon2 * Cother_ict * Cardiolipin_other - koff2 * Cother_E2) 
       
-       dCother_E3R = kon3 * Cother_ict * E3 - koff3 * E3R 
-       dCother_E3 = - (kon3 * Cother_ict * E3 - koff3 * E3R) 
+      dCother_E3R = kon3 * Cother_ict * mtDNA_other - koff3 * Cother_E3R 
+      dCother_E3 = - (kon3 * Cother_ict * mtDNA_other - koff3 * Cother_E3R) 
       
-       dCother_Rf = Cother_ict -(kon1 * Cother_ict * E1 - koff1 * Cother_E1R) - (kon2 * Cother_ict * E2 - koff2 * Cother_E2) - (kon3 * Cother_ict * E3 - koff3 * E3R) 
-
-       #Myocardial
-       dCmyo_E1R = kon1 * Cmyo_ict * E1 - koff1 * Cmyo_E1R
-       dCmyo_E1 = - (kon1 * Cmyo_ict * E1 - koff1 * Cmyo_E1R) 
-       
-       dCmyo_E2R = kon2 * Cmyo_ict * E2 - koff2 * Cmyo_E2R 
-       dCmyo_E2 = - (kon2 * Cmyo_ict * E2 - koff2 * Cmyo_E2) 
-       
-       dCmyo_E3R = kon3 * Cmyo_ict * E3 - koff3 * E3R 
-       dCmyo_E3 = - (kon3 * Cmyo_ict * E3 - koff3 * E3R) 
-       
-       dCmyo_Rf = Cmyo_ict -(kon1 * Cmyo_ict * E1 - koff1 * Cmyo_E1R) - (kon2 * Cmyo_ict * E2 - koff2 * Cmyo_E2) - (kon3 * Cmyo_ict * E3 - koff3 * E3R) 
-       
+      dCother_icfree = Cother_ict -(kon1 * Cother_ict * DNA_other - koff1 * Cother_E1R) - (kon2 * Cother_ict * Cardiolipin_other - koff2 * Cother_E2) - (kon3 * Cother_ict * mtDNA_other - koff3 * Cother_E3R) 
+      
+      #Myocardial
+      dCmyo_E1R = kon1 * Cmyo_ict * DNA_myo - koff1 * Cmyo_E1R
+      dCmyo_E1 = - (kon1 * Cmyo_ict * DNA_myo - koff1 * Cmyo_E1R) 
+      
+      dCmyo_E2R = kon2 * Cmyo_ict * Cardiolipin_myo - koff2 * Cmyo_E2R 
+      dCmyo_E2 = - (kon2 * Cmyo_ict * Cardiolipin_myo - koff2 * Cmyo_E2) 
+      
+      dCmyo_E3R = kon3 * Cmyo_ict * mtDNA_myo - koff3 * Cmyo_E3R 
+      dCmyo_E3 = - (kon3 * Cmyo_ict * mtDNA_myo - koff3 * Cmyo_E3R) 
+      
+      dCmyo_icfree = Cmyo_ict -(kon1 * Cmyo_ict * DNA_myo - koff1 * Cmyo_E1R) - (kon2 * Cmyo_ict * Cardiolipin_myo - koff2 * Cmyo_E2) - (kon3 * Cmyo_ict * mtDNA_myo - koff3 * Cmyo_E3R) 
+      
       # Adipose
-      dCad_E1R = kon1 * Cad_ict * E1 - koff1 * Cad_E1R
-      dCad_E1 = - (kon1 * Cad_ict * E1 - koff1 * Cad_E1R) 
+      dCad_E1R = kon1 * Cad_ict * DNA_ad - koff1 * Cad_E1R
+      dCad_E1 = - (kon1 * Cad_ict * DNA_ad - koff1 * Cad_E1R) 
       
-      dCad_E2R = kon2 * Cad_ict * E2 - koff2 * Cad_E2R 
-      dCad_E2 = - (kon2 * Cad_ict * E2 - koff2 * Cad_E2) 
+      dCad_E2R = kon2 * Cad_ict * Cardiolipin_ad - koff2 * Cad_E2R 
+      dCad_E2 = - (kon2 * Cad_ict * Cardiolipin_ad - koff2 * Cad_E2) 
       
-      dCad_E3R = kon3 * Cad_ict * E3 - koff3 * E3R 
-      dCad_E3 = - (kon3 * Cad_ict * E3 - koff3 * E3R) 
+      dCad_E3R = kon3 * Cad_ict * mtDNA_ad - koff3 * Cad_E3R 
+      dCad_E3 = - (kon3 * Cad_ict * mtDNA_ad - koff3 * Cad_E3R) 
       
-      dCad_Rf = Cad_ict -(kon1 * Cad_ict * E1 - koff1 * Cad_E1R) - (kon2 * Cad_ict * E2 - koff2 * Cad_E2) - (kon3 * Cad_ict * E3 - koff3 * E3R) 
+      dCad_icfree = Cad_ict -(kon1 * Cad_ict * DNA_ad - koff1 * Cad_E1R) - (kon2 * Cad_ict * Cardiolipin_ad - koff2 * Cad_E2) - (kon3 * Cad_ict * mtDNA_ad - koff3 * Cad_E3R) 
       
       # Bone
-      dCbo_E1R = kon1 * Cbo_ict * E1 - koff1 * Cbo_E1R
-      dCbo_E1 = - (kon1 * Cbo_ict * E1 - koff1 * Cbo_E1R) 
+      dCbo_E1R = kon1 * Cbo_ict * DNA_bo - koff1 * Cbo_E1R
+      dCbo_E1 = - (kon1 * Cbo_ict * DNA_bo - koff1 * Cbo_E1R) 
       
-      dCbo_E2R = kon2 * Cbo_ict * E2 - koff2 * Cbo_E2R 
-      dCbo_E2 = - (kon2 * Cbo_ict * E2 - koff2 * Cbo_E2) 
+      dCbo_E2R = kon2 * Cbo_ict * Cardiolipin_bo - koff2 * Cbo_E2R 
+      dCbo_E2 = - (kon2 * Cbo_ict * Cardiolipin_bo - koff2 * Cbo_E2) 
       
-      dCbo_E3R = kon3 * Cbo_ict * E3 - koff3 * E3R 
-      dCbo_E3 = - (kon3 * Cbo_ict * E3 - koff3 * E3R) 
+      dCbo_E3R = kon3 * Cbo_ict * mtDNA_bo - koff3 * Cbo_E3R 
+      dCbo_E3 = - (kon3 * Cbo_ict * mtDNA_bo - koff3 * Cbo_E3R) 
       
-      dCbo_Rf = Cbo_ict -(kon1 * Cbo_ict * E1 - koff1 * Cbo_E1R) - (kon2 * Cbo_ict * E2 - koff2 * Cbo_E2) - (kon3 * Cbo_ict * E3 - koff3 * E3R) 
+      dCbo_icfree = Cbo_ict -(kon1 * Cbo_ict * DNA_bo - koff1 * Cbo_E1R) - (kon2 * Cbo_ict * Cardiolipin_bo - koff2 * Cbo_E2) - (kon3 * Cbo_ict * mtDNA_bo - koff3 * Cbo_E3R) 
       
       # Brain
-      dCbr_E1R = kon1 * Cbr_ict * E1 - koff1 * Cbr_E1R
-      dCbr_E1 = - (kon1 * Cbr_ict * E1 - koff1 * Cbr_E1R) 
+      dCbr_E1R = kon1 * Cbr_ict * DNA_br - koff1 * Cbr_E1R
+      dCbr_E1 = - (kon1 * Cbr_ict * DNA_br - koff1 * Cbr_E1R) 
       
-      dCbr_E2R = kon2 * Cbr_ict * E2 - koff2 * Cbr_E2R 
-      dCbr_E2 = - (kon2 * Cbr_ict * E2 - koff2 * Cbr_E2) 
+      dCbr_E2R = kon2 * Cbr_ict * Cardiolipin_br - koff2 * Cbr_E2R 
+      dCbr_E2 = - (kon2 * Cbr_ict * Cardiolipin_br - koff2 * Cbr_E2) 
       
-      dCbr_E3R = kon3 * Cbr_ict * E3 - koff3 * E3R 
-      dCbr_E3 = - (kon3 * Cbr_ict * E3 - koff3 * E3R) 
+      dCbr_E3R = kon3 * Cbr_ict * mtDNA_br - koff3 * Cbr_E3R 
+      dCbr_E3 = - (kon3 * Cbr_ict * mtDNA_br - koff3 * Cbr_E3R) 
       
-      dCbr_Rf = Cbr_ict -(kon1 * Cbr_ict * E1 - koff1 * Cbr_E1R) - (kon2 * Cbr_ict * E2 - koff2 * Cbr_E2) - (kon3 * Cbr_ict * E3 - koff3 * E3R) 
+      dCbr_icfree = Cbr_ict -(kon1 * Cbr_ict * DNA_br - koff1 * Cbr_E1R) - (kon2 * Cbr_ict * Cardiolipin_br - koff2 * Cbr_E2) - (kon3 * Cbr_ict * mtDNA_br - koff3 * Cbr_E3R) 
       
       # Gut
-      dCgu_E1R = kon1 * Cgu_ict * E1 - koff1 * Cgu_E1R
-      dCgu_E1 = - (kon1 * Cgu_ict * E1 - koff1 * Cgu_E1R) 
+      dCgu_E1R = kon1 * Cgu_ict * DNA_gu - koff1 * Cgu_E1R
+      dCgu_E1 = - (kon1 * Cgu_ict * DNA_gu - koff1 * Cgu_E1R) 
       
-      dCgu_E2R = kon2 * Cgu_ict * E2 - koff2 * Cgu_E2R 
-      dCgu_E2 = - (kon2 * Cgu_ict * E2 - koff2 * Cgu_E2) 
+      dCgu_E2R = kon2 * Cgu_ict * Cardiolipin_gu - koff2 * Cgu_E2R 
+      dCgu_E2 = - (kon2 * Cgu_ict * Cardiolipin_gu - koff2 * Cgu_E2) 
       
-      dCgu_E3R = kon3 * Cgu_ict * E3 - koff3 * E3R 
-      dCgu_E3 = - (kon3 * Cgu_ict * E3 - koff3 * E3R) 
+      dCgu_E3R = kon3 * Cgu_ict * mtDNA_gu - koff3 * Cgu_E3R 
+      dCgu_E3 = - (kon3 * Cgu_ict * mtDNA_gu - koff3 * Cgu_E3R) 
       
-      dCgu_Rf = Cgu_ict -(kon1 * Cgu_ict * E1 - koff1 * Cgu_E1R) - (kon2 * Cgu_ict * E2 - koff2 * Cgu_E2) - (kon3 * Cgu_ict * E3 - koff3 * E3R) 
+      dCgu_icfree = Cgu_ict -(kon1 * Cgu_ict * DNA_gu - koff1 * Cgu_E1R) - (kon2 * Cgu_ict * Cardiolipin_gu - koff2 * Cgu_E2) - (kon3 * Cgu_ict * mtDNA_gu - koff3 * Cgu_E3R) 
       
       # Kidney
-      dCki_E1R = kon1 * Cki_ict * E1 - koff1 * Cki_E1R
-      dCki_E1 = - (kon1 * Cki_ict * E1 - koff1 * Cki_E1R) 
+      dCki_E1R = kon1 * Cki_ict * DNA_ki - koff1 * Cki_E1R
+      dCki_E1 = - (kon1 * Cki_ict * DNA_ki - koff1 * Cki_E1R) 
       
-      dCki_E2R = kon2 * Cki_ict * E2 - koff2 * Cki_E2R 
-      dCki_E2 = - (kon2 * Cki_ict * E2 - koff2 * Cki_E2) 
+      dCki_E2R = kon2 * Cki_ict * Cardiolipin_ki - koff2 * Cki_E2R 
+      dCki_E2 = - (kon2 * Cki_ict * Cardiolipin_ki - koff2 * Cki_E2) 
       
-      dCki_E3R = kon3 * Cki_ict * E3 - koff3 * E3R 
-      dCki_E3 = - (kon3 * Cki_ict * E3 - koff3 * E3R) 
+      dCki_E3R = kon3 * Cki_ict * mtDNA_ki - koff3 * Cki_E3R 
+      dCki_E3 = - (kon3 * Cki_ict * mtDNA_ki - koff3 * Cki_E3R) 
       
-      dCki_Rf = Cki_ict -(kon1 * Cki_ict * E1 - koff1 * Cki_E1R) - (kon2 * Cki_ict * E2 - koff2 * Cki_E2) - (kon3 * Cki_ict * E3 - koff3 * E3R) 
+      dCki_icfree = Cki_ict -(kon1 * Cki_ict * DNA_ki - koff1 * Cki_E1R) - (kon2 * Cki_ict * Cardiolipin_ki - koff2 * Cki_E2) - (kon3 * Cki_ict * mtDNA_ki - koff3 * Cki_E3R) 
       
       # Liver
-      dCli_E1R = kon1 * Cli_ict * E1 - koff1 * Cli_E1R
-      dCli_E1 = - (kon1 * Cli_ict * E1 - koff1 * Cli_E1R) 
+      dCli_E1R = kon1 * Cli_ict * DNA_li - koff1 * Cli_E1R
+      dCli_E1 = - (kon1 * Cli_ict * DNA_li - koff1 * Cli_E1R) 
       
-      dCli_E2R = kon2 * Cli_ict * E2 - koff2 * Cli_E2R 
-      dCli_E2 = - (kon2 * Cli_ict * E2 - koff2 * Cli_E2) 
+      dCli_E2R = kon2 * Cli_ict * Cardiolipin_li - koff2 * Cli_E2R 
+      dCli_E2 = - (kon2 * Cli_ict * Cardiolipin_li - koff2 * Cli_E2) 
       
-      dCli_E3R = kon3 * Cli_ict * E3 - koff3 * E3R 
-      dCli_E3 = - (kon3 * Cli_ict * E3 - koff3 * E3R) 
+      dCli_E3R = kon3 * Cli_ict * mtDNA_li - koff3 * Cli_E3R 
+      dCli_E3 = - (kon3 * Cli_ict * mtDNA_li - koff3 * Cli_E3R) 
       
-      dCli_Rf = Cli_ict -(kon1 * Cli_ict * E1 - koff1 * Cli_E1R) - (kon2 * Cli_ict * E2 - koff2 * Cli_E2) - (kon3 * Cli_ict * E3 - koff3 * E3R) 
+      dCli_icfree = Cli_ict -(kon1 * Cli_ict * DNA_li - koff1 * Cli_E1R) - (kon2 * Cli_ict * Cardiolipin_li - koff2 * Cli_E2) - (kon3 * Cli_ict * mtDNA_li - koff3 * Cli_E3R) 
       
       #lung
-      dClu_E1R = kon1 * Clu_ict * E1 - koff1 * Clu_E1R
-      dClu_E1 = - (kon1 * Clu_ict * E1 - koff1 * Clu_E1R) 
+      dClu_E1R = kon1 * Clu_ict * DNA_lu - koff1 * Clu_E1R
+      dClu_E1 = - (kon1 * Clu_ict * DNA_lu - koff1 * Clu_E1R) 
       
-      dClu_E2R = kon2 * Clu_ict * E2 - koff2 * Clu_E2R 
-      dClu_E2 = - (kon2 * Clu_ict * E2 - koff2 * Clu_E2) 
+      dClu_E2R = kon2 * Clu_ict * Cardiolipin_lu - koff2 * Clu_E2R 
+      dClu_E2 = - (kon2 * Clu_ict * Cardiolipin_lu - koff2 * Clu_E2) 
       
-      dClu_E3R = kon3 * Clu_ict * E3 - koff3 * E3R 
-      dClu_E3 = - (kon3 * Clu_ict * E3 - koff3 * E3R) 
+      dClu_E3R = kon3 * Clu_ict * mtDNA_lu - koff3 * Clu_E3R 
+      dClu_E3 = - (kon3 * Clu_ict * mtDNA_lu - koff3 * Clu_E3R) 
       
-      dClu_Rf = Clu_ict -(kon1 * Clu_ict * E1 - koff1 * Clu_E1R) - (kon2 * Clu_ict * E2 - koff2 * Clu_E2) - (kon3 * Clu_ict * E3 - koff3 * E3R) 
+      dClu_icfree = Clu_ict -(kon1 * Clu_ict * DNA_lu - koff1 * Clu_E1R) - (kon2 * Clu_ict * Cardiolipin_lu - koff2 * Clu_E2) - (kon3 * Clu_ict * mtDNA_lu - koff3 * Clu_E3R) 
       
       # Muscle
-      dCmu_E1R = kon1 * Cmu_ict * E1 - koff1 * Cmu_E1R
-      dCmu_E1 = - (kon1 * Cmu_ict * E1 - koff1 * Cmu_E1R) 
+      dCmu_E1R = kon1 * Cmu_ict * DNA_mu - koff1 * Cmu_E1R
+      dCmu_E1 = - (kon1 * Cmu_ict * DNA_mu - koff1 * Cmu_E1R) 
       
-      dCmu_E2R = kon2 * Cmu_ict * E2 - koff2 * Cmu_E2R 
-      dCmu_E2 = - (kon2 * Cmu_ict * E2 - koff2 * Cmu_E2) 
+      dCmu_E2R = kon2 * Cmu_ict * Cardiolipin_mu - koff2 * Cmu_E2R 
+      dCmu_E2 = - (kon2 * Cmu_ict * Cardiolipin_mu - koff2 * Cmu_E2) 
       
-      dCmu_E3R = kon3 * Cmu_ict * E3 - koff3 * E3R 
-      dCmu_E3 = - (kon3 * Cmu_ict * E3 - koff3 * E3R) 
+      dCmu_E3R = kon3 * Cmu_ict * mtDNA_mu - koff3 * Cmu_E3R 
+      dCmu_E3 = - (kon3 * Cmu_ict * mtDNA_mu - koff3 * Cmu_E3R) 
       
-      dCmu_Rf = Cmu_ict -(kon1 * Cmu_ict * E1 - koff1 * Cmu_E1R) - (kon2 * Cmu_ict * E2 - koff2 * Cmu_E2) - (kon3 * Cmu_ict * E3 - koff3 * E3R) 
+      dCmu_icfree = Cmu_ict -(kon1 * Cmu_ict * DNA_mu - koff1 * Cmu_E1R) - (kon2 * Cmu_ict * Cardiolipin_mu - koff2 * Cmu_E2) - (kon3 * Cmu_ict * mtDNA_mu - koff3 * Cmu_E3R) 
       
       # Skin
-      dCsk_E1R = kon1 * Csk_ict * E1 - koff1 * Csk_E1R
-      dCsk_E1 = - (kon1 * Csk_ict * E1 - koff1 * Csk_E1R) 
+      dCsk_E1R = kon1 * Csk_ict * DNA_sk - koff1 * Csk_E1R
+      dCsk_E1 = - (kon1 * Csk_ict * DNA_sk - koff1 * Csk_E1R) 
       
-      dCsk_E2R = kon2 * Csk_ict * E2 - koff2 * Csk_E2R 
-      dCsk_E2 = - (kon2 * Csk_ict * E2 - koff2 * Csk_E2) 
+      dCsk_E2R = kon2 * Csk_ict * Cardiolipin_sk - koff2 * Csk_E2R 
+      dCsk_E2 = - (kon2 * Csk_ict * Cardiolipin_sk - koff2 * Csk_E2) 
       
-      dCsk_E3R = kon3 * Csk_ict * E3 - koff3 * E3R 
-      dCsk_E3 = - (kon3 * Csk_ict * E3 - koff3 * E3R) 
+      dCsk_E3R = kon3 * Csk_ict * mtDNA_sk - koff3 * Csk_E3R 
+      dCsk_E3 = - (kon3 * Csk_ict * mtDNA_sk - koff3 * Csk_E3R) 
       
-      dCsk_Rf = Csk_ict -(kon1 * Csk_ict * E1 - koff1 * Csk_E1R) - (kon2 * Csk_ict * E2 - koff2 * Csk_E2) - (kon3 * Csk_ict * E3 - koff3 * E3R) 
+      dCsk_icfree = Csk_ict -(kon1 * Csk_ict * DNA_sk - koff1 * Csk_E1R) - (kon2 * Csk_ict * Cardiolipin_sk - koff2 * Csk_E2) - (kon3 * Csk_ict * mtDNA_sk - koff3 * Csk_E3R) 
       
       # Spleen
-      dCsp_E1R = kon1 * Csp_ict * E1 - koff1 * Csp_E1R
-      dCsp_E1 = - (kon1 * Csp_ict * E1 - koff1 * Csp_E1R) 
+      dCsp_E1R = kon1 * Csp_ict * DNA_sp - koff1 * Csp_E1R
+      dCsp_E1 = - (kon1 * Csp_ict * DNA_sp - koff1 * Csp_E1R) 
       
-      dCsp_E2R = kon2 * Csp_ict * E2 - koff2 * Csp_E2R 
-      dCsp_E2 = - (kon2 * Csp_ict * E2 - koff2 * Csp_E2) 
+      dCsp_E2R = kon2 * Csp_ict * Cardiolipin_sp - koff2 * Csp_E2R 
+      dCsp_E2 = - (kon2 * Csp_ict * Cardiolipin_sp - koff2 * Csp_E2) 
       
-      dCsp_E3R = kon3 * Csp_ict * E3 - koff3 * E3R 
-      dCsp_E3 = - (kon3 * Csp_ict * E3 - koff3 * E3R) 
+      dCsp_E3R = kon3 * Csp_ict * mtDNA_sp - koff3 * Csp_E3R 
+      dCsp_E3 = - (kon3 * Csp_ict * mtDNA_sp - koff3 * Csp_E3R) 
       
-      dCsp_Rf = Csp_ict -(kon1 * Csp_ict * E1 - koff1 * Csp_E1R) - (kon2 * Csp_ict * E2 - koff2 * Csp_E2) - (kon3 * Csp_ict * E3 - koff3 * E3R) 
+      dCsp_icfree = Csp_ict -(kon1 * Csp_ict * DNA_sp - koff1 * Csp_E1R) - (kon2 * Csp_ict * Cardiolipin_sp - koff2 * Csp_E2) - (kon3 * Csp_ict * mtDNA_sp - koff3 * Csp_E3R) 
       
       # Pancreas
-      dCpa_E1R = kon1 * Cpa_ict * E1 - koff1 * Cpa_E1R
-      dCpa_E1 = - (kon1 * Cpa_ict * E1 - koff1 * Cpa_E1R) 
+      dCpa_E1R = kon1 * Cpa_ict * DNA_pa - koff1 * Cpa_E1R
+      dCpa_E1 = - (kon1 * Cpa_ict * DNA_pa - koff1 * Cpa_E1R) 
       
-      dCpa_E2R = kon2 * Cpa_ict * E2 - koff2 * Cpa_E2R 
-      dCpa_E2 = - (kon2 * Cpa_ict * E2 - koff2 * Cpa_E2) 
+      dCpa_E2R = kon2 * Cpa_ict * Cardiolipin_pa - koff2 * Cpa_E2R 
+      dCpa_E2 = - (kon2 * Cpa_ict * Cardiolipin_pa - koff2 * Cpa_E2) 
       
-      dCpa_E3R = kon3 * Cpa_ict * E3 - koff3 * E3R 
-      dCpa_E3 = - (kon3 * Cpa_ict * E3 - koff3 * E3R) 
+      dCpa_E3R = kon3 * Cpa_ict * mtDNA_pa - koff3 * Cpa_E3R 
+      dCpa_E3 = - (kon3 * Cpa_ict * mtDNA_pa - koff3 * Cpa_E3R) 
       
-      dCpa_Rf = Cpa_ict -(kon1 * Cpa_ict * E1 - koff1 * Cpa_E1R) - (kon2 * Cpa_ict * E2 - koff2 * Cpa_E2) - (kon3 * Cpa_ict * E3 - koff3 * E3R) 
+      dCpa_icfree = Cpa_ict -(kon1 * Cpa_ict * DNA_pa - koff1 * Cpa_E1R) - (kon2 * Cpa_ict * Cardiolipin_pa - koff2 * Cpa_E2) - (kon3 * Cpa_ict * mtDNA_pa - koff3 * Csp_E3R) 
       
       
-
       #return the rate of changes
       list(
         c(dINFUSION,
@@ -933,6 +1000,7 @@ require(ggquickeda)
           dApa,
           dAbloodcell,
           
+          dAhe_ec,
           dAad_ec,
           dAbo_ec,
           dAbr_ec,
@@ -943,11 +1011,8 @@ require(ggquickeda)
           dAmu_ec,
           dAsk_ec,
           dAsp_ec,
-          dAhe_ec,
-          dAve_ec,
-          dAar_ec,
           dApa_ec,
-        
+          
           dAother_ict,
           dAmyo_ict,
           dAad_ict,
@@ -960,25 +1025,111 @@ require(ggquickeda)
           dAmu_ict,
           dAsk_ict,
           dAsp_ict,
-          dAve_ict,
-          dAar_ict,
           dApa_ict,
           
-          dCother_Rf,
-          dCmyo_Rf,
-          dCad_Rf,
-          dCbo_Rf,
-          dCbr_Rf,
-          dCgu_Rf,
-          dCki_Rf,
-          dCli_Rf,
-          dClu_Rf,
-          dCmu_Rf,
-          dCsk_Rf,
-          dCsp_Rf,
-          dCve_Rf,
-          dCar_Rf,
-          dCpa_Rf),
+          dCother_icfree,
+          dCother_E1R,
+          dCother_E1,
+          dCother_E2R,
+          dCother_E2,
+          dCother_E3R,
+          dCother_E3,
+          
+          dCmyo_icfree,
+          dCmyo_E1R,
+          dCmyo_E1,
+          dCmyo_E2R,
+          dCmyo_E2,
+          dCmyo_E3R,
+          dCmyo_E3,
+          
+          dCad_icfree,
+          dCad_E1R,
+          dCad_E1,
+          dCad_E2R,
+          dCad_E2,
+          dCad_E3R,
+          dCad_E3,
+          
+          dCbo_icfree,
+          dCbo_E1R,
+          dCbo_E1,
+          dCbo_E2R,
+          dCbo_E2,
+          dCbo_E3R,
+          dCbo_E3,
+          
+          dCbr_icfree,
+          dCbr_E1R,
+          dCbr_E1,
+          dCbr_E2R,
+          dCbr_E2,
+          dCbr_E3R,
+          dCbr_E3,
+          
+          dCgu_icfree,
+          dCgu_E1R,
+          dCgu_E1,
+          dCgu_E2R,
+          dCgu_E2,
+          dCgu_E3R,
+          dCgu_E3,
+          
+          dCki_icfree,
+          dCki_E1R,
+          dCki_E1,
+          dCki_E2R,
+          dCki_E2,
+          dCki_E3R,
+          dCki_E3,
+          
+          dCli_icfree,
+          dCli_E1R,
+          dCli_E1,
+          dCli_E2R,
+          dCli_E2,
+          dCli_E3R,
+          dCli_E3,
+          
+          dClu_icfree,
+          dClu_E1R,
+          dClu_E1,
+          dClu_E2R,
+          dClu_E2,
+          dClu_E3R,
+          dClu_E3,
+          
+          dCmu_icfree,
+          dCmu_E1R,
+          dCmu_E1,
+          dCmu_E2R,
+          dCmu_E2,
+          dCmu_E3R,
+          dCmu_E3,
+          
+          dCsk_icfree,
+          dCsk_E1R,
+          dCsk_E1,
+          dCsk_E2R,
+          dCsk_E2,
+          dCsk_E3R,
+          dCsk_E3,
+          
+          dCsp_icfree,
+          dCsp_E1R,
+          dCsp_E1,
+          dCsp_E2R,
+          dCsp_E2,
+          dCsp_E3R,
+          dCsp_E3,
+          
+          dCpa_icfree,
+          dCpa_E1R,
+          dCpa_E1,
+          dCpa_E2R,
+          dCpa_E2,
+          dCpa_E3R,
+          dCpa_E3),
         
         Cadipose = Aad / Vad,
         Cbone = Abo / Vbo	,
@@ -992,22 +1143,23 @@ require(ggquickeda)
         Cspleen = Asp / Vsp,
         Cheart = Ahe / Vhe,
         Cpancrea = Apa / Vpa,
-        
         logBL = log10(Cplasmavenous),
         BL = Cplasmavenous,
-        BLCELL = Cbloodcell,
+        BLCELL = Cbloodcell
       )
     })
   }
 }
 
 out <-
-  ode(
-    y = state,
+  ode(y = state,
     times = times,
     func = PBPKModel,
-    parm = parameters
-  )
+    parm = parameters,
+    hmax= 0.01,
+    rtol = 1e-8,
+    atol = 1e-8,
+    method = "lsoda")
 results <- data.frame(out)
 
 
