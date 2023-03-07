@@ -1,0 +1,986 @@
+# Whole-body PBPK model for Doxorubicin 
+# delete blood cell and intracellular binding
+# time:h dose:mg L/h/mg/umol 
+rm(list=ls(all=TRUE))
+
+#REQUIRED PACKAGES:
+require(distr)
+require(data.table)
+require(dplyr)
+require(ggplot2)
+require(deSolve)
+require(plotly)
+require(openxlsx)
+require(ggquickeda)
+
+{
+  #Scenario set-------------------------------------------------------
+  t_end <- 8 #[h] time of the end of simulation
+  times <- seq(0, t_end, by = 0.1) #time of simulation
+  oral_dose <- 0 #[mg] oral bolus dose
+  
+  #Population set-------------------------------------------------------
+  age <- 25 #the age of chosen sample
+  gender <- 'male'
+  weight <- 70 #[kg]
+  height <- 180 #[cm]
+  
+  BSA <- weight ^ 0.425 * height ^ 0.725 * 0.007184 #[m2] Body surface area according to [DuBois-DuBois 1916]
+  CO  <- 1.1 * BSA - 0.05 * age + 5.5 #[L/min] cardiac output
+  CO <- CO * 60 #[L/h] cardiac output units change from [L/min] to [L/h]
+  
+  inf_dose <- 60 * BSA #[mg] infusion dose according to Pfizer guidance : https://www.pfizermedicalinformation.com/en-us/doxorubicin/dosage-admin
+  inf_time <- 1/30 #[h] infusion time
+  
+  #SEX DEPENDENT BLOOD FLOWS for healthy population according to [Simycp Simulator v.16]
+  # BLOOD FLOWS [L/h] -------------------------------------------------------
+  Qbr <- CO  * 0.12 #Brain
+  Qhe <- CO  * 0.04 #Heart
+  Qsk <- CO  * 0.05 #Skin
+  Qmu <- CO  * 0.17 #Muscle
+  Qad <- CO  * 0.05 #Adipose
+  Qsp <- CO  * 0.02 #Spleen
+  Qgu <- CO  * 0.16 #Gut
+  Qki <- CO  * 0.19 #Kidney
+  Qha <- CO  * 0.065#Hepatic artery
+  Qbo <- CO  * 0.05 #Bone
+  Qpa <- CO  * 0.085#Pancreas
+  Qlu <- CO #lung
+  Qli <- Qha + Qsp + Qgu + Qpa #Liver
+  
+  # ORGAN VOLUMES [L] -----------------------------------------------------------
+  #BW fraction (according to Simcyp Simulator) * random BW / tissue density
+  Vad <- (0.259 * weight) / 0.923
+  Vbo <- (0.090 * weight) / 1.850
+  Vbr <- (0.017 * weight) / 1.04
+  Vgu <- (0.016 * weight) / 1.04
+  Vhe <- (0.005 * weight) / 1.04
+  Vki <- (0.004 * weight) / 1.05
+  Vli <- (0.022 * weight) / 1.08
+  Vlu <- (0.007 * weight) / 1.05
+  Vmu <- (0.403 * weight) / 1.04
+  Vsk <- (0.043 * weight) / 1.1
+  Vsp <- (0.002 * weight) / 1.06
+  Vpa <- (0.057 * weight) / 1.05
+  Vpl <- (0.044 * weight) / 1.025
+  Vrb <- (0.031 * weight) / 1.125
+  Vbl <- Vpl + Vrb
+  
+  #Tissue volumes [L] -------------------------------------------------------
+  Vother = 0.3 * Vhe #other heart tissues
+  Vmyo = 0.7 * Vhe #myocardial
+  Vother_ic = 87.5 / 100 * Vother #intracellular space of endocardial [Sjogaard 1982] -> data for skeletal muscle; calculated the proportion of extracellular water to total water in skeletal muscle
+  Vmyo_ic = 87.5 / 100 * Vmyo #intracellular space of epicardial
+  Vhe_ec = 12.5 / 100 * Vhe #extracellular space of heart tissue
+  Vve = (2 / 3) * Vbl		#venous blood; assumed 2/3 of total blood according to volmues published in CPT. Regarding the distribution of blood volume within the circulation, the greatest volume resides in the venous vasculature, where 70-80% of the blood volume is found. -> http://www.cvphysiology.com/Blood%20Pressure/BP019
+  Var = Vbl - Vve		#arterial blood
+  Vplas_ven = Vpl * (Vve / (Vve + Var))  #venous plasma
+  Vplas_art = Vpl * (Var / (Vve + Var)) 	#arterial plasma
+  
+  Vbo_ic <- 87.5 / 100 * Vbo
+  Vbo_ec <- 12.5 / 100 * Vbo
+  
+  Vbr_ic <- 87.5 / 100 * Vbr
+  Vbr_ec <- 12.5 / 100 * Vbr
+  
+  Vsk_ic <- 87.5 / 100 * Vsk
+  Vsk_ec <- 12.5 / 100 * Vsk
+  
+  Vli_ic <- 87.5 / 100 * Vli
+  Vli_ec <- 12.5 / 100 * Vli
+  
+  Vki_ic <- 87.5 / 100 * Vki
+  Vki_ec <- 12.5 / 100 * Vki
+  
+  Vlu_ic <- 87.5 / 100 * Vlu
+  Vlu_ec <- 12.5 / 100 * Vlu
+  
+  Vmu_ic <- 87.5 / 100 * Vmu
+  Vmu_ec <- 12.5 / 100 * Vmu
+  
+  Vpa_ic <- 87.5 / 100 * Vpa
+  Vpa_ec <- 12.5 / 100 * Vpa
+  
+  Vsk_ic <- 87.5 / 100 * Vsk
+  Vsk_ec <- 12.5 / 100 * Vsk
+  
+  Vsp_ic <- 87.5 / 100 * Vsp
+  Vsp_ec <- 12.5 / 100 * Vsp
+  
+  Vgu_ic <- 87.5 / 100 * Vgu
+  Vgu_ec <- 12.5 / 100 * Vgu
+  
+  Vad_ic <- 87.5 / 100 * Vad
+  Vad_ec <- 12.5 / 100 * Vad
+  
+  # CARDIOMYOCYTE VOLUME AND SURFACE AREA according to [Polak 2012] -------------------------------------------------------
+  MV <- exp(age * 0.04551 + 7.36346) #[cm^3]
+  MSA <-exp(sqrt(0.102 ^ 2 + (log(MV)) ^ 2 * 0.002939 ^ 2)) #[cm^2]
+  
+  # PHYSIOLOGICAL PARAMETERS -------------------------------------------------------
+  liver_density <- 1080 #[g/L]
+  heart_density <- 1055 #[g/L] [Alexandra 2019]
+  
+}
+
+# Calculation kp based on Rodgers and Rowland method
+{
+  pKa <- 8.15 # (amine)
+  pH_iw <- 7 #pH of intracellular water
+  pH_ew <- 7.4 #pH of extracellular water
+  pH_rbc <- 7.15 #pH of red blood cells [swietach, 2010]
+  logPow <- 1.27 
+  P <- 10^logPow #the n octanol: buffer partition coefficient for non-adipose tissue and the olive oil buffer partition coefficient for adipose tissue
+  X_rbc <- 1 + 10^(pKa-pH_rbc)
+  Y_rbc <- 10^(pKa-pH_rbc)
+  X_iw <- 1 + 10^(pKa-pH_iw)
+  X_ew <- 1 + 10^(pKa-pH_ew)
+  Y_iw <- 10^(pKa-pH_iw)
+  logPvow <- (1.115 * logPow - 1.35) - log(X_ew) #For the partitioning into the adipose tissue, it is more accurate to use the vegetable oil:water partition coefficient
+  Pad <- 10^ logPvow
+  
+  # Relative Volume of Wet Tissue (%)
+  # Adipose
+  EW_ad <- 0.141
+  IW_ad <- 0.039
+  NL_ad <- 0.79
+  NP_ad <- 0.002
+  AP_ad <- 0.4 #mg/g the concentration of acidic phospholipids AP in adipose
+  
+  # Bone
+  EW_bo <- 0.098
+  IW_bo <- 0.341
+  NL_bo <- 0.074
+  NP_bo <- 0.0011
+  AP_bo <- 0.67 #mg/g the concentration of acidic phospholipids AP in Bone
+  
+  # Brain
+  EW_br <- 0.092
+  IW_br <- 0.678
+  NL_br <- 0.051
+  NP_br <- 0.0565
+  AP_br <- 0.4 #mg/g the concentration of acidic phospholipids AP in Brain
+  
+  # Gut
+  EW_gu <- 0.267
+  IW_gu <- 0.451
+  NL_gu <- 0.0487
+  NP_gu <- 0.0163
+  AP_gu <- 2.84 #mg/g the concentration of acidic phospholipids AP in Gut 
+  
+  # Heart
+  EW_he <- 0.313
+  IW_he <- 0.445
+  NL_he <- 0.0115
+  NP_he <- 0.0166
+  AP_he <- 3.07 #mg/g the concentration of acidic phospholipids AP in Heart 
+  
+  # Kidney
+  EW_ki <- 0.283
+  IW_ki <- 0.50
+  NL_ki <- 0.0207
+  NP_ki <- 0.0162
+  AP_ki <- 2.48 #mg/g the concentration of acidic phospholipids AP in kidney 
+  
+  # Liver
+  EW_li <- 0.165
+  IW_li <- 0.586
+  NL_li <- 0.0348
+  NP_li <- 0.0252
+  AP_li <- 5.09 #mg/g the concentration of acidic phospholipids AP in liver 
+  
+  # Lung
+  EW_lu <- 0.348
+  IW_lu <- 0.463
+  NL_lu <- 0.003
+  NP_lu <- 0.009
+  AP_lu <- 0.5 #mg/g the concentration of acidic phospholipids AP in Lung 
+  
+  # Muscle
+  EW_mu <- 0.091
+  IW_mu <- 0.669
+  NL_mu <- 0.0238
+  NP_mu <- 0.0072
+  AP_mu <- 2.49 #mg/g the concentration of acidic phospholipids AP in muscle 
+  
+  # Pancreas
+  EW_pa <- 0.12
+  IW_pa <- 0.664
+  NL_pa <- 0.041
+  NP_pa <- 0.0093
+  AP_pa <- 1.67 #mg/g the concentration of acidic phospholipids AP in Pancreas 
+  
+  # Skin
+  EW_sk <- 0.623
+  IW_sk <- 0.0947
+  NL_sk <- 0.0284
+  NP_sk <- 0.0111
+  AP_sk <- 1.32 #mg/g the concentration of acidic phospholipids AP in Skin 
+  
+  # Spleen
+  EW_sp <- 0.208
+  IW_sp <- 0.579
+  NL_sp <- 0.0201
+  NP_sp <- 0.0198
+  AP_sp <- 2.81 #mg/g the concentration of acidic phospholipids AP in Spleen 
+  
+  # Plasma
+  EW_pl <- 0.945
+  IW_pl <- 0
+  NL_pl <- 0.0035
+  NP_pl <- 0.0023
+  AP_pl <- 0.04 #mg/g the concentration of acidic phospholipids AP in Plasma 
+  
+  # RBC
+  EW_rbc <- 0
+  IW_rbc <- 0.666
+  NL_rbc <- 0.0017
+  NP_rbc <- 0.0029
+  AP_rbc <- 0.44 #mg/g the concentration of acidic phospholipids AP in Plasma  
+  
+  HCT <- 0.45 #hematocrit (Adult males: 41% to 50%)
+  fup <- 0.26 #fraction unbound in plasma (Huahe)
+  BP <- 1.15 #blood to plasma ratio [Dong 2022]
+  
+  Kpu_rbc <- (BP * HCT + (1 - HCT)) / fup 
+  KaAP <- (Kpu_rbc - (X_rbc / X_ew * IW_rbc) - ((logPow * NL_rbc + (0.3 * logPow + 0.7) * NP_rbc) /X_ew)) * (X_ew /  (AP_rbc * Y_rbc))#affinity constant for acidic phospholipids (AP) 
+  
+  # Rodger and Rowland method to calculate moderate to strong bases (pKa > 7) and ampholytes
+  
+  Kpu_ad <- EW_ad + (X_iw / X_ew) * IW_ad + ( Pad * NL_ad + (0.3 * P + 0.7) * NP_ad) / EW_ad + KaAP * AP_ad * Y_iw / X_ew
+  Kpu_bo <- EW_bo + (X_iw / X_ew) * IW_bo + ( P * NL_bo + (0.3 * P + 0.7) * NP_bo) / EW_bo + KaAP * AP_bo * Y_iw / X_ew
+  Kpu_br <- EW_br + (X_iw / X_ew) * IW_br + ( P * NL_br + (0.3 * P + 0.7) * NP_br) / EW_br + KaAP * AP_br * Y_iw / X_ew
+  Kpu_gu <- EW_gu + (X_iw / X_ew) * IW_gu + ( P * NL_gu + (0.3 * P + 0.7) * NP_gu) / EW_gu + KaAP * AP_gu * Y_iw / X_ew
+  Kpu_he <- EW_he + (X_iw / X_ew) * IW_he + ( P * NL_he + (0.3 * P + 0.7) * NP_he) / EW_he + KaAP * AP_he * Y_iw / X_ew
+  Kpu_ki <- EW_ki + (X_iw / X_ew) * IW_ki + ( P * NL_ki + (0.3 * P + 0.7) * NP_ki) / EW_ki + KaAP * AP_ki * Y_iw / X_ew
+  Kpu_li <- EW_li + (X_iw / X_ew) * IW_li + ( P * NL_li + (0.3 * P + 0.7) * NP_li) / EW_li + KaAP * AP_li * Y_iw / X_ew
+  Kpu_lu <- EW_lu + (X_iw / X_ew) * IW_lu + ( P * NL_lu + (0.3 * P + 0.7) * NP_lu) / EW_lu + KaAP * AP_lu * Y_iw / X_ew
+  Kpu_mu <- EW_mu + (X_iw / X_ew) * IW_mu + ( P * NL_mu + (0.3 * P + 0.7) * NP_mu) / EW_mu + KaAP * AP_mu * Y_iw / X_ew
+  Kpu_pa <- EW_pa + (X_iw / X_ew) * IW_pa + ( P * NL_pa + (0.3 * P + 0.7) * NP_pa) / EW_pa + KaAP * AP_pa * Y_iw / X_ew
+  Kpu_sk <- EW_sk + (X_iw / X_ew) * IW_sk + ( P * NL_sk + (0.3 * P + 0.7) * NP_sk) / EW_sk + KaAP * AP_sk * Y_iw / X_ew
+  Kpu_sp <- EW_sp + (X_iw / X_ew) * IW_sp + ( P * NL_sp + (0.3 * P + 0.7) * NP_sp) / EW_sp + KaAP * AP_sp * Y_iw / X_ew
+  Kpu_pl <- EW_pl + (X_iw / X_ew) * IW_pl + ( P * NL_pl + (0.3 * P + 0.7) * NP_pl) / EW_pl + KaAP * AP_pl * Y_iw / X_ew
+  
+  Kpad <- Kpu_ad * fup
+  Kpbo <- Kpu_bo * fup
+  Kpbr <- Kpu_br * fup
+  Kpgu <- Kpu_gu * fup
+  Kphe <- Kpu_he * fup
+  Kpki <- Kpu_ki * fup
+  Kpli <- Kpu_li * fup
+  Kplu <- Kpu_lu * fup
+  Kpmu <- Kpu_mu * fup
+  Kppa <- Kpu_pa * fup
+  Kpsk <- Kpu_sk * fup
+  Kpsp <- Kpu_sp * fup
+  Kppl <- Kpu_pl * fup
+  
+  Vss <- Vpl/ fup + Vad * Kpad + Vbo * Kpbo + Vbr * Kpbr + Vgu * Kpgu + Vhe * Kphe + Vki * Kpki  + Vli * Kpli + Vlu * Kplu + Vmu * Kpmu + Vpa * Kppa + Vsk * Kpsk + Vsp * Kpsp
+  
+  # tissue to plasma albumin ratio 
+  ad_ratio <- 0.037
+  bo_ratio <- 0.1
+  br_ratio <- 0.048
+  gu_ratio <- 0.158
+  he_ratio <- 0.157
+  ki_ratio <- 0.13  
+  li_ratio <- 0.086
+  lu_ratio <- 0.212
+  mu_ratio <- 0.034
+  pa_ratio <- 0.06
+  sk_ratio <- 0.277
+  sp_ratio <- 0.097
+  
+  # nonspecific protein binding (Kp) describe extracellular // intracellular
+  Kpec_he <-  (1- he_ratio) * fup + he_ratio
+  Kpec_ad <-  (1- ad_ratio) * fup + ad_ratio
+  Kpec_bo <-  (1- bo_ratio) * fup + bo_ratio
+  Kpec_br <-  (1- br_ratio) * fup + br_ratio
+  Kpec_gu <-  (1- gu_ratio) * fup + gu_ratio
+  Kpec_ki <-  (1- ki_ratio) * fup + ki_ratio
+  Kpec_li <-  (1- li_ratio) * fup + li_ratio
+  Kpec_lu <-  (1- lu_ratio) * fup + lu_ratio
+  Kpec_mu <-  (1- mu_ratio) * fup + mu_ratio
+  Kpec_sk <-  (1- sk_ratio) * fup + sk_ratio
+  Kpec_sp <-  (1- sp_ratio) * fup + sp_ratio
+  Kpec_pa <-  (1- pa_ratio) * fup + pa_ratio
+}
+
+{
+  # MODEL -------------------------------------------------------------------
+  #Arguments of the function are the model parameters that vary
+  ModelVar <- function (BW,
+                        CO,
+                        MPPGL,
+                        Vad,
+                        Vbl,
+                        Vrb,
+                        Vbo,
+                        Vbr,
+                        Vgu,
+                        Vheart,
+                        Vki,
+                        Vli,
+                        Vlu,
+                        Vpl,
+                        Vmu,
+                        Vsk,
+                        Vsp,
+                        Vpa,
+                        Qpa,
+                        Qad,
+                        Qbo,
+                        Qbr,
+                        Qgu,
+                        Qheart,
+                        Qki,
+                        Qh,
+                        Qlu,
+                        Qmu,
+                        Qsk,
+                        Qsp,
+                        CYP3A4,
+                        tlag,
+                        Fabs,
+                        t_end,
+                        fup,
+                        BP,
+                        MV,
+                        MSA)
+  
+  times <- seq(0, t_end, by = 0.1)
+  
+  # PHYSICO-CHEMICAL PARAMETERS OF DOX -------------------------------------------------------
+  MW <-  543.52 #[g/mol] Molecular weight
+  pKa <- 8.22 # [Zahra 2020]
+  HBD <- 6 #number of hydrogen bond donors: [PubChem Compound Database; CID = 31703];
+  PSA <- 206 #Polar Surface Area:  [PubChem Compound Database; CID = 31703]
+  logD74 <- 0.02 #octanol/water distribution coefficient at pH 7.4 [Alves 2017]
+  
+  #myocyte volume -------------------------------------------------------
+  ML <- 134 #[mcm] myocyte length [Tracy 2011, Gerdes 1995]
+  MB <- ML / 7 #=2r [mcm] myocyte breadth ML:MB = 7:1 [Tracy 2011, Gerdes 1995]
+  MVol <- MV * (10 ^ -15) #[L] random age dependent myocate volume in cm3 -> changing to liters
+  
+  #myoccyte cells amounts -------------------------------------------------------
+  cell_amount_other <- Vother_ic / MVol #other heart compartments
+  cell_amount_myo <- Vmyo_ic / MVol #myocardial
+  
+  #cells concentration -------------------------------------------------------
+  cell_concentration_other <- cell_amount_other / Vhe #other heart compartments
+  cell_concentration_myo <- cell_amount_myo / Vhe #myocardial
+  
+  #heart DNA: 90.6 ng/ul = 90.6 mg/l from literature -------------------------------------------------------
+  #DNA_epi <- 2.15 * 0.001 / Vhe
+  #DNA_mid <- 2.15 * 0.001 / Vhe
+  #DNA_endo <- 2.15 * 0.001 / Vhe
+  
+  #mtDNA_epi <- 2.15 * 0.001 * 0.01 / Vhe
+  #mtDNA_mid <- 2.15 * 0.001 * 0.01 / Vhe
+  #mtDNA_endo <- 2.15 * 0.001 * 0.01 / Vhe
+  
+  #the concentration of cardiolipin derive from [Daniel 2002]
+  #MW_cardiolipin <- 1300 #g/mol
+  #content_cardiolipin <- 43.8 #umol/l from rat tissue
+  #cardiolipin <- 56.94  # mg/l (MW_cardiolipin * content_cardiolipin)
+  
+  #DNA concentration (6pg = 6 * 10^-9 mg DNA per cell)  # DNA and mtDNA concentration, assume epi:mid:endo = 0.2 : 0.3 : 0.5 [DOI:10.6000/1927-5129.2017.13.35]
+  #DNA_other <- cell_concentration_other * 6 * 10 ^ -9
+  #DNA_myo <- cell_concentration_myo * 6 * 10 ^ -9
+  DNA_li <- 23.7 #umol/L 
+  DNA_he <- 8.3 #umol/L 
+  DNA_ki <- 16.2 #umol/L 
+  DNA_bo <- 19.1 #umol/L 
+  DNA_gu <- 25.2 #umol/L 
+  
+  DNA_mu <- 4.5 #umol/L Slowly perfused organs
+  DNA_ad <- 4.5 #umol/L 
+  DNA_sk <- 4.5 #umol/L 
+  DNA_sp <- 4.5 #umol/L 
+  DNA_pa <- 4.5 #umol/L 
+  DNA_gu <- 4.5 #umol/L 
+  
+  DNA_br <- 1.5 #mol/L Rapidly perfused organ
+  DNA_lu <- 1.5 #mol/L 
+  
+  Cardiolipin_li <- 44.6 #mol/L 
+  Cardiolipin_he <- 43.8 #mol/L 
+  Cardiolipin_ki <- 52.3 #mol/L 
+  Cardiolipin_bo <- 25 #mol/L 
+  Cardiolipin_gu <- 25 #mol/L 
+  
+  Cardiolipin_ad <- 15 #mol/L Slowly perfused
+  Cardiolipin_mu <- 15 #mol/L Slowly perfused
+  Cardiolipin_sk <- 15 #mol/L Slowly perfused
+  Cardiolipin_sp <- 15 #mol/L Slowly perfused
+  Cardiolipin_pa <- 15 #mol/L Slowly perfused
+  
+  Cardiolipin_br <- 30 #mol/L Rapidly perfused
+  Cardiolipin_lu <- 30 #mol/L Rapidly perfused
+  
+  mtDNA_li <- 2.37 #mol/L assume basesd on DNA concentration
+  mtDNA_he <- 8.3 #mol/L 
+  mtDNA_ki <- 1.62 #mol/L 
+  mtDNA_bo <- 1.91 #mol/L 
+  mtDNA_gu <- 2.52 #mol/L 
+  
+  mtDNA_mu <- 0.45 #mol/L
+  mtDNA_ad <- 0.45 #mol/L 
+  mtDNA_sk <- 0.45 #mol/L 
+  mtDNA_sp <- 0.45 #mol/L 
+  mtDNA_pa <- 0.45 #mol/L 
+  mtDNA_gu <- 0.45 #mol/L 
+  
+  mtDNA_br <- 0.15 #mol/L 
+  mtDNA_lu <- 0.15 #mol/L 
+  
+  DNA_other <- 0.05 * DNA_he
+  DNA_myo <- 0.95 * DNA_he
+  
+  mtDNA_other <- 0.05 * mtDNA_he
+  mtDNA_myo <- 0.95 * mtDNA_he
+  
+  Cardiolipin_other <- 0.05 * Cardiolipin_he
+  Cardiolipin_myo <- 0.95 * Cardiolipin_he
+  
+  Kd_DNA <- 3.23 # 3.23 umol/L = 0.00000323 mol/L = 0.00323 mM = 3.23 x 10^-6 M = 3230 nmol/L
+  Koff_DNA <- 30564 #509.4 min-1 = 30564 h-1 
+  Kon_DNA <- Koff_DNA / Kd_DNA
+  
+  Kd_mtDNA <- 1 # 100nM to Molar (assume)
+  Koff_mtDNA <- 30564 #509.4 min-1 = 30564 h-1
+  Kon_mtDNA <- Koff_mtDNA / Kd_mtDNA
+  
+  Kd_cardiolipin <- 4 # 400nM to Molar (assume)
+  Koff_cardiolipin <- 30564 #509.4 min-1 = 30564 h-1
+  Kon_cardiolipin <- Koff_cardiolipin / Kd_cardiolipin
+  
+  kon1 <- Kon_DNA
+  koff1 <- Koff_DNA
+  
+  kon2 <- Kon_cardiolipin
+  koff2 <- Koff_cardiolipin
+  
+  kon3 <- Kon_mtDNA
+  koff3 <- Koff_mtDNA
+  
+  #PER：cytoplasmic membrane permeability coefficient
+  PER <- 0.0756  # cm/h （huahe Unpublished）
+  
+  #surface area -------------------------------------------------------
+  SA_other<- (cell_amount_other * MSA) / (10 ^ 8) #[cm^2]
+  SA_myo <- (cell_amount_myo * MSA) / (10 ^ 8) #[cm^2]
+  SA_bloodcell <- 25800 #[dm2] [Huahe paper]
+  
+  # Tissue intracellular surface area (from simcyp screenshot) units: cm^2
+  SA_bo = 9.26E+6
+  SA_br = 988.52
+  SA_ki = 2.23E+8
+  SA_li = 4.96E+7
+  SA_lu = 109303.33
+  SA_mu = 5.39E+6
+  SA_pa = 4.21E+8
+  SA_sk = 34097.5
+  SA_sp = 4.48E+8
+  SA_gu = 1.27E+8 + 1.95E+8
+  SA_ad = 9.11E+6
+  
+  #Absorption: -------------------------------------------------------
+  PAMPA <- 1 / 3600 #[cm/s] [Eikenberry 2009]
+  Pdiff_dox <- PAMPA #[cm/s]
+  
+  #DISTRIBUTION  -------------------------------------------------------
+  #Drug binding
+  fup <- 0.26 #fraction unbound in plasma (Huahe)
+  
+  fuec_he <- 1 #fraction unbound in heart extracellular fluid is assumed
+  fuec_bo <- 1 
+  fuec_br <- 1 
+  fuec_ki <- 1 
+  fuec_li <- 1 
+  fuec_lu <- 1 
+  fuec_mu <- 1 
+  fuec_pa <- 1 
+  fuec_sk <- 1 
+  fuec_sp <- 1 
+  fuec_gu <- 1 
+  fuec_ad <- 1 
+  
+  fu_heart <- 1 #fraction unbound in heart is assumed
+  BP <- 1.15 #blood to plasma ratio [Dong 2022]
+  
+  # Passive permeability surface area product in heart tissue -------------------------------------------------------
+  PSA_other = Pdiff_dox * SA_other * (10 ^ -3) * 60 * 60 #[L/h] passive permeability surface area product
+  PSA_myo = Pdiff_dox * SA_myo * (10 ^ -3) * 60 * 60 #[L/h] passive permeability surface area product
+  PSA_bo = Pdiff_dox * SA_bo * (10 ^ -3) * 60 * 60 #[L/h] 
+  PSA_br = Pdiff_dox * SA_br * (10 ^ -3) * 60 * 60 #[L/h] 
+  PSA_sk = Pdiff_dox * SA_sk * (10 ^ -3) * 60 * 60 #[L/h] 
+  PSA_li = Pdiff_dox * SA_li * (10 ^ -3) * 60 * 60 #[L/h] 
+  PSA_lu = Pdiff_dox * SA_lu * (10 ^ -3) * 60 * 60 #[L/h] 
+  PSA_mu = Pdiff_dox * SA_mu * (10 ^ -3) * 60 * 60 #[L/h] 
+  PSA_pa = Pdiff_dox * SA_pa * (10 ^ -3) * 60 * 60 #[L/h] 
+  PSA_sk = Pdiff_dox * SA_sk * (10 ^ -3) * 60 * 60 #[L/h] 
+  PSA_sp = Pdiff_dox * SA_sp * (10 ^ -3) * 60 * 60 #[L/h] 
+  PSA_gu = Pdiff_dox * SA_gu * (10 ^ -3) * 60 * 60 #[L/h] 
+  PSA_ad = Pdiff_dox * SA_ad * (10 ^ -3) * 60 * 60 #[L/h] 
+  
+  # PARAMETERS FOR ICF and ECF in heart tissue and assume this value for every organ-------------------------------------------------------
+  pH_ic <- 7.2 #[Vaugha-Jones 2009, Zheng 2005]
+  pH_ec <- 7.4 #[Vaugha-Jones 2009, Zheng 2005]
+  
+  #Henderson_Hasselbalch equation for base compound -> fraction of un-ionized base in heart compartments: -------------------------------------------------------
+  funionized_ic <- 1 / (1 + 10 ^ (pKa - pH_ic))
+  funionized_ec <- 1 / (1 + 10 ^ (pKa - pH_ec))
+  
+  Kpp <- (1 + 10 ^ (pKa - pH_ic)) / (1 + 10 ^ (pKa - pH_ec)) 
+  
+  #IV INFUSION RATE
+  r = inf_dose #[mg]
+  t = inf_time #time of infusion [h]
+  inf = r / t #infusion rate [mg/h]
+  
+  # CL clearance [Leandro 2019] -------------------------------------------------------
+  CL_renal <- 0.66 #[L/ h] renal clearance
+  CL_hepatic <- 29.97 #[L/ h] hepatic clearance
+  CLint_heart <- 0 #[L/ h] heart clearance CYP3A4 was not detected in heart tissue
+  CL_total <- 30.6 #[L/ h] total clearance
+  
+  # MODEL -------------------------------------------------------------------
+  parameters <- c(
+    BP = BP,
+    Kplu = Kplu,
+    Kpli = Kpli,
+    Kpad = Kpad,
+    Kpbo = Kpbo,
+    Kpbr = Kpbr,
+    Kpgu = Kpgu,
+    Kpki = Kpki,
+    Kpmu = Kpmu,
+    Kpsk = Kpsk,
+    Kpsp = Kpsp,
+    Kppa = Kppa,
+    Kphe = Kphe,
+    Vmyo = Vmyo,
+    Vother = Vother,
+    fup = fup,
+    funionized_ic = funionized_ic,
+    funionized_ec = funionized_ec,
+    CL_renal = CL_renal,
+    CL_hepatic = CL_hepatic
+  )
+  
+  # State variables -------------------------------------------------------
+  state <- c(
+    INFUSION = r,
+    Aad = 0,
+    Abo = 0,
+    Abr = 0,
+    Agu = 0,
+    Aki = 0,
+    Ali = 0,
+    Alu = 0,
+    Amu = 0,
+    Ask = 0,
+    Asp = 0,
+    Ahe = 0,
+    Apa = 0,
+    Ave = 0,
+    Aar = 0,
+    Ahe_ec = 0,
+    Aad_ec = 0,
+    Abo_ec = 0,
+    Abr_ec = 0,
+    Agu_ec = 0,
+    Aki_ec = 0,
+    Ali_ec = 0,
+    Alu_ec = 0,
+    Amu_ec = 0,
+    Ask_ec = 0,
+    Asp_ec = 0,
+    Apa_ec = 0,
+    Aother_ict = 0,
+    Amyo_ict = 0,
+    Aad_ict = 0,
+    Abo_ict = 0,
+    Abr_ict = 0,
+    Agu_ict = 0,
+    Aki_ict = 0,
+    Ali_ict = 0,
+    Alu_ict = 0,
+    Amu_ict = 0,
+    Ask_ict = 0,
+    Asp_ict = 0,
+    Apa_ict = 0)
+  
+  ###Differential equations - mg/h/L -------------------------------------------------------
+  PBPKModel = function(times, state, parameters) {
+    with(as.list(c(state, parameters)), {
+      inf <- ifelse(times <= t, inf, 0)
+      #   if (times <= t)
+      #     inf
+      # else
+      #   0
+      
+      #DOX concentrations:
+      Cadipose <- Aad / Vad    #adipose
+      Cbone <- Abo / Vbo		   #bone
+      Cbrain <- Abr / Vbr		   #brain
+      Cgut <- Agu / Vgu			   #gut
+      Ckidney <- Aki / Vki	   #kidney
+      Cliver <- Ali / Vli		   #liver
+      Cliverfree <-  Cliver * (fup / BP)  #liver free concentration
+      Ckidneyfree <- Ckidney * (fup / BP) #kidney free concentration
+      Clung <- Alu / Vlu		   #lung
+      Cmuscle <- Amu / Vmu	   #muscle
+      Cskin <- Ask / Vsk		   #skin
+      Cspleen <- Asp / Vsp	   #spleen
+      Cheart <- Ahe / Vhe	    #heart
+      Cpa <- Apa / Vpa 			#pancreas
+      
+      Cvenous <- Ave / Vve     #venous blood
+      Carterial <- Aar / Var	 #arterial blood
+      Cplasmavenous <- Cvenous / BP	#venous plasma concentration
+      
+      Che_ec <- Ahe_ec / Vhe_ec #heart extracellular fluid
+      Cad_ec <- Aad_ec / Vad_ec 
+      Cbo_ec <- Abo_ec / Vbo_ec
+      Cbr_ec <- Abr_ec / Vbr_ec
+      Cgu_ec <- Agu_ec / Vgu_ec
+      Cki_ec <- Aki_ec / Vki_ec
+      Cli_ec <- Ali_ec / Vli_ec
+      Clu_ec <- Alu_ec/ Vlu_ec
+      Cmu_ec <- Amu_ec/ Vmu_ec
+      Csk_ec <- Ask_ec/ Vsk_ec
+      Csp_ec <- Asp_ec / Vsp_ec
+      Cpa_ec <- Apa_ec / Vpa_ec
+      
+      Cother_ict <- Aother_ict / Vother_ic #heart other organ intracellular total concentration
+      Cmyo_ict <- Amyo_ict / Vmyo_ic #heart myo intracellular total concentration
+      Cad_ict <- Aad_ict / Vad_ic
+      Cbo_ict <- Abo_ict / Vbo_ic
+      Cbr_ict <- Abr_ict / Vbr_ic
+      Cgu_ict <- Agu_ict / Vgu_ic
+      Cki_ict <- Aki_ict / Vki_ic
+      Cli_ict <- Ali_ict / Vli_ic
+      Clu_ict <- Alu_ict / Vlu_ic
+      Cmu_ict <- Amu_ict / Vmu_ic
+      Csk_ict <- Ask_ict / Vsk_ic
+      Csp_ict <- Asp_ict / Vsp_ic
+      Cpa_ict <- Apa_ict / Vpa_ic
+      
+      ## rates of changes -------------------------------------------------------
+      dINFUSION <- -inf
+      dAad <- Qad * (Carterial - Cadipose / Kpad * BP) #adipose
+      dAbo <- Qbo * (Carterial - Cbone / Kpbo * BP) #bone
+      dAbr <- Qbr * (Carterial - Cbrain / Kpbr * BP) #brain
+      dAgu <- Qgu * (Carterial - Cgut / Kpgu * BP) #gut
+      dAki <- Qki * (Carterial - Ckidney / Kpki * BP) - CL_renal * Ckidneyfree  #kidney
+      dAli <- Qha * Carterial + Qgu * (Cgut / Kpgu * BP) + Qsp * (Cspleen / Kpsp * BP) - Qli * (Cliver / Kpli * BP) - CL_hepatic * Cliverfree #liver
+      dAlu <- Qlu * Cvenous - Qlu * (Clung / Kplu * BP) #lung
+      dAmu <- Qmu * (Carterial - Cmuscle / Kpmu * BP)   #muscle
+      dAsk <- Qsk * (Carterial - Cskin / Kpsk * BP)  		#skin
+      dAsp <- Qsp * (Carterial - Cspleen / Kpsp * BP)  	#spleen
+      dAhe <- Qhe * (Carterial - (Cheart/ Kphe) * BP) #heart
+      dApa <- Qpa * (Carterial - Cpa / Kppa * BP)  		#pancreas
+      dAve <- inf + Qad * (Cadipose / Kpad * BP) + Qbo * (Cbone / Kpbo * BP) + Qbr * (Cbrain / Kpbr * BP) + Qki* (Ckidney / Kpki * BP) + Qli * (Cliver / Kpli * BP) + Qmu* (Cmuscle / Kpmu * BP) + Qsk* (Cskin / Kpsk * BP)+ Qhe * (Che_ec / Kpec_he * BP) + Qpa*(Cpa / Kppa * BP) - Qlu * Cvenous #venous blood
+      dAar <- Qlu * (Clung / Kplu * BP) - Qad * Carterial - Qbo * Carterial - Qbr * Carterial - Qgu * Carterial- Qki * Carterial- Qha * Carterial- Qmu * Carterial- Qsk * Carterial- Qsp * Carterial-	Qpa * Carterial 	#arterial blood
+
+      #Extracellular sub-compartment
+      dAhe_ec <- Qhe * (Carterial - (Che_ec/Kphe) * BP) - 0.001 * PER * SA_other * (Che_ec * fuec_he * funionized_ec - Cother_ict/(Kpec_he * Kpp) * funionized_ic ) - 0.001 * PER * SA_myo * (Che_ec * fuec_he * funionized_ec - Cmyo_ict/(Kpec_he * Kpp) * funionized_ic ) 
+      dAad_ec <- Qad * (Carterial - (Cad_ec/Kpad) * BP) - 0.001 * PER * SA_ad * (Cad_ec * fuec_ad * funionized_ec - Cad_ict/(Kpec_ad * Kpp) * funionized_ic)
+      dAbo_ec <- Qbo * (Carterial - (Cbo_ec/Kpbo) * BP) - 0.001 * PER * SA_bo * (Cbo_ec * fuec_bo * funionized_ec - Cbo_ict/(Kpec_bo * Kpp) * funionized_ic)
+      dAbr_ec <- Qbr * (Carterial - (Cbr_ec/Kpbr) * BP) - 0.001 * PER * SA_br * (Cbr_ec * fuec_br * funionized_ec - Cbr_ict/(Kpec_br * Kpp) * funionized_ic)
+      dAgu_ec <- Qgu * (Carterial - (Cgu_ec/Kpgu) * BP) - 0.001 * PER * SA_gu * (Cgu_ec * fuec_gu * funionized_ec - Cgu_ict/(Kpec_gu * Kpp) * funionized_ic)
+      dAki_ec <- Qki * (Carterial - (Cki_ec/Kpki) * BP) - 0.001 * PER * SA_ki * (Cki_ec * fuec_ki * funionized_ec - Cki_ict/(Kpec_ki * Kpp) * funionized_ic)
+      dAli_ec <- Qli * (Carterial - (Cli_ec/Kpli) * BP) - 0.001 * PER * SA_li * (Cli_ec * fuec_li * funionized_ec - Cli_ict/(Kpec_li * Kpp) * funionized_ic)
+      dAlu_ec <- Qlu * (Carterial - (Clu_ec/Kplu) * BP) - 0.001 * PER * SA_lu * (Clu_ec * fuec_lu * funionized_ec - Clu_ict/(Kpec_lu * Kpp) * funionized_ic)
+      dAmu_ec <- Qmu * (Carterial - (Cmu_ec/Kpmu) * BP) - 0.001 * PER * SA_mu * (Cmu_ec * fuec_mu * funionized_ec - Cmu_ict/(Kpec_mu * Kpp) * funionized_ic)
+      dAsk_ec <- Qsk * (Carterial - (Csk_ec/Kpsk) * BP) - 0.001 * PER * SA_sk * (Csk_ec * fuec_sk * funionized_ec - Csk_ict/(Kpec_sk * Kpp) * funionized_ic)
+      dAsp_ec <- Qsp * (Carterial - (Csp_ec/Kpsp) * BP) - 0.001 * PER * SA_sp * (Csp_ec * fuec_sp * funionized_ec - Csp_ict/(Kpec_sp * Kpp) * funionized_ic)
+      dApa_ec <- Qpa * (Carterial - (Cpa_ec/Kppa) * BP) - 0.001 * PER * SA_pa * (Cpa_ec * fuec_pa * funionized_ec - Cpa_ict/(Kpec_pa * Kpp) * funionized_ic)
+      
+      #Intracellular sub-compartment
+      dAother_ict <- 0.001 * PER * SA_other * (Che_ec * fuec_he * funionized_ec - Cother_ict/(Kpec_he * Kpp) * funionized_ic ) - Cother_ict * fu_heart * CLint_heart * (Vother_ic/Vhe)
+      dAmyo_ict <- 0.001 * PER * SA_myo * (Che_ec * fuec_he * funionized_ec - Cmyo_ict/(Kpec_he * Kpp) * funionized_ic ) - Cmyo_ict * fu_heart * CLint_heart * (Vmyo_ic/Vhe)
+      dAad_ict <- 0.001 * PER * SA_ad * (Cad_ec * fuec_ad * funionized_ec - Cad_ict/(Kpec_ad * Kpp) * funionized_ic)
+      dAbo_ict <- 0.001 * PER * SA_bo * (Cbo_ec * fuec_bo * funionized_ec - Cbo_ict/(Kpec_bo * Kpp) * funionized_ic)
+      dAbr_ict <- 0.001 * PER * SA_br * (Cbr_ec * fuec_br * funionized_ec - Cbr_ict/(Kpec_br * Kpp) * funionized_ic)
+      dAgu_ict <- 0.001 * PER * SA_gu * (Cgu_ec * fuec_gu * funionized_ec - Cgu_ict/(Kpec_gu * Kpp) * funionized_ic)
+      dAki_ict <- 0.001 * PER * SA_ki * (Cki_ec * fuec_ki * funionized_ec - Cki_ict/(Kpec_ki * Kpp) * funionized_ic)
+      dAli_ict <- 0.001 * PER * SA_li * (Cli_ec * fuec_li * funionized_ec - Cli_ict/(Kpec_li * Kpp) * funionized_ic)
+      dAlu_ict <- 0.001 * PER * SA_lu * (Clu_ec * fuec_lu * funionized_ec - Clu_ict/(Kpec_lu * Kpp) * funionized_ic)
+      dAmu_ict <- 0.001 * PER * SA_mu * (Cmu_ec * fuec_mu * funionized_ec - Cmu_ict/(Kpec_mu * Kpp) * funionized_ic)
+      dAsk_ict <- 0.001 * PER * SA_sk * (Csk_ec * fuec_sk * funionized_ec - Csk_ict/(Kpec_sk * Kpp) * funionized_ic)
+      dAsp_ict <- 0.001 * PER * SA_sp * (Csp_ec * fuec_sp * funionized_ec - Csp_ict/(Kpec_sp * Kpp) * funionized_ic)
+      dApa_ict <- 0.001 * PER * SA_pa * (Cpa_ec * fuec_pa * funionized_ec - Cpa_ict/(Kpec_pa * Kpp) * funionized_ic)
+      
+      #return the rate of changes
+      list(
+        c(dINFUSION,
+          dAad,
+          dAbo,
+          dAbr,
+          dAgu,
+          dAki,
+          dAli,
+          dAlu,
+          dAmu,
+          dAsk,
+          dAsp,
+          dAhe,
+          dAve,
+          dAar,
+          dApa,
+
+          dAhe_ec,
+          dAad_ec,
+          dAbo_ec,
+          dAbr_ec,
+          dAgu_ec,
+          dAki_ec,
+          dAli_ec,
+          dAlu_ec,
+          dAmu_ec,
+          dAsk_ec,
+          dAsp_ec,
+          dApa_ec,
+          
+          dAother_ict,
+          dAmyo_ict,
+          dAad_ict,
+          dAbo_ict,
+          dAbr_ict,
+          dAgu_ict,
+          dAki_ict,
+          dAli_ict,
+          dAlu_ict,
+          dAmu_ict,
+          dAsk_ict,
+          dAsp_ict,
+          dApa_ict),
+        
+        Cadipose = Aad / Vad,
+        Cbone = Abo / Vbo	,
+        Cbrain = Abr / Vbr,
+        Cgut = Agu / Vgu,
+        Ckidney = Aki / Vki,
+        Cliver = Ali / Vli,
+        Clung = Alu / Vlu,
+        Cmuscle = Amu / Vmu,
+        Cskin = Ask / Vsk,
+        Cspleen = Asp / Vsp,
+        Cheart = Ahe / Vhe,
+        Cpancrea = Apa / Vpa,
+        logBL = log10(Cplasmavenous),
+        BL = Cplasmavenous)
+    })
+  }
+}
+
+out <-
+  ode(y = state,
+      times = times,
+      func = PBPKModel,
+      parm = parameters)
+results <- data.frame(out)
+
+
+run_ggquickeda(results)
+
+
+
+par(mfrow=c(3,4))
+plot(results$time, results$Cliver, type="l", col="red", xlab="Time", ylab="Concentration", 
+     main="Liver")
+plot(results$time, results$BL, type="l", col="red", xlab="Time", ylab="Concentration", 
+     main="Plasma")
+plot(results$time, results$Cadipose, type="l", col="red", xlab="Time", ylab="Concentration", 
+     main="Adipose")
+plot(results$time, results$Cbone, type="l", col="red", xlab="Time", ylab="Concentration", 
+     main="Bone")
+plot(results$time, results$Cbrain, type="l", col="red", xlab="Time", ylab="Concentration", 
+     main="Brain")
+plot(results$time, results$Cgut, type="l", col="red", xlab="Time", ylab="Concentration", 
+     main="Gut")
+plot(results$time, results$Cheart, type="l", col="red", xlab="Time", ylab="Concentration", 
+     main="Heart")
+plot(results$time, results$Ckidney, type="l", col="red", xlab="Time", ylab="Concentration", 
+     main="Kidney")
+plot(results$time, results$Clung, type="l", col="red", xlab="Time", ylab="Concentration", 
+     main="Lung")
+plot(results$time, results$Cmuscle, type="l", col="red", xlab="Time", ylab="Concentration", 
+     main="Muscle")
+plot(results$time, results$Cskin, type="l", col="red", xlab="Time", ylab="Concentration", 
+     main="Skin")
+plot(results$time, results$Cspleen, type="l", col="red", xlab="Time", ylab="Concentration", 
+     main="Spleen")
+
+
+
+plot(
+  results$time,
+  results$BL,
+  type = "l",
+  col = "blue",
+  xlab = "Time [h]",
+  ylab = "Blood Concentration [mg/L]"
+)  
+
+plot(
+  results$time,
+  results$logBL,
+  type = "l",
+  col = "blue",
+  xlab = "Time [h]",
+  ylab = "Log Blood Concentration [mg/L]"
+)  
+
+plot(
+  results$time,
+  results$BLCELL,
+  type = "l",
+  col = "blue",
+  xlab = "Time [h]",
+  ylab = "Blood cells Concentration [mg/L]"
+)  
+
+plot(
+  results$time,
+  results$ICBOUND,
+  type = "l",
+  col = "blue",
+  xlab = "Time [h]",
+  ylab = "Bound Intracellular Concentration [mg/L]"
+)  
+
+plot(
+  results$time,
+  results$Cheart,
+  type = "l",
+  col = "blue",
+  xlab = "Time [h]",
+  ylab = "Heart concentration Concentration [mg/L]"
+)  
+
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00",
+                "#CC79A7")
+plot1 <-ggplot(data=data.frame(results), aes(x=time))+
+  geom_line(aes(y=HT,col="HT"),lty=1,size=1.5)+
+  geom_line(aes(y=MID_ict,col= "MID"),lty=1,size=1.5)+
+  geom_line(aes(y=ENDO_ict,col="ENDO"),lty=1,size=1.5)+
+  geom_line(aes(y=EPI_ict,col="EPI"),lty=1,size=1.5)+
+  ylab(" Concentration (mg/L)")+ xlab("Time (hour)")+
+  scale_fill_manual( breaks = c("HT","MID","ENDO","EPI"),
+                     values = c("#000000", "#E69F00", "#56B4E9","#009E73"),
+                     labels = c("HT","MID","ENDO","EPI"))+
+  theme_bw()+theme(text=element_text(size=15),plot.margin = unit(c(5,5,5,5),"mm"))+#changed all plot margins from 5 to 10
+  labs(title="Concentration of sub-compartment layers", size=1)
+plot1
+
+plot2 <-ggplot(data=data.frame(results), aes(x=time))+
+  geom_line(aes(y=MID_ict,col= "MID"),lty=1,size=1.5)+
+  geom_line(aes(y=ENDO_ict,col="ENDO"),lty=1,size=1.5)+
+  geom_line(aes(y=EPI_ict,col="EPI"),lty=1,size=1.5)+
+  geom_line(aes(y=EC,col="EC"),lty=1,size=1.5)+
+  ylab(" Concentration (mg/L)")+ xlab("Time (hour)")+
+  scale_fill_manual( breaks = c("MID","ENDO","EPI","EC"),
+                     values = c( "#E69F00", "#56B4E9","#009E73","#000000"),
+                     labels = c("MID","ENDO","EPI","EC"))+
+  theme_bw()+theme(text=element_text(size=15),plot.margin = unit(c(5,5,5,5),"mm"))+#changed all plot margins from 5 to 10
+  labs(title="Total concentration of sub-compartment intracellular total comcentration", size=1)
+plot2
+ggplotly(plot2)
+
+plot3 <-ggplot(data=data.frame(results), aes(x=time))+
+  geom_line(aes(y=HT,col="Mean heart"),lty=1,size=1.5)+
+  geom_line(aes(y=MID_ict,col= "Midmyocardial"),lty=1,size=1.5)+
+  geom_line(aes(y=BL,col= "Blood"),lty=1,size=1.5)+
+  ylab(" Concentration (mg/L)")+ xlab("Time (hour)")+
+  scale_x_continuous(limits = c(0, 45))+
+  scale_fill_manual( breaks = c("Mean heart","Midmyocardial","Blood"),
+                     values = c("#000000", "#E69F00", "#56B4E9"),
+                     labels = c("Mean heart","Midmyocardial","Blood"))+
+  theme_bw()+theme(text=element_text(size=15),plot.margin = unit(c(5,5,5,5),"mm"))+#changed all plot margins from 5 to 10
+  labs(title="Concentration of sub-compartment layers", size=1)
+plot3
+
+plot4 <-ggplot(data=data.frame(results), aes(x=time))+
+  geom_line(aes(y=Cendo_icfree,col="Cendo_icfree"),lty=1,size=1.5)+
+  geom_line(aes(y=Cmid_icfree,col= "Cmid_icfree"),lty=1,size=1.5)+
+  geom_line(aes(y=Cepi_icfree,col= "Cepi_icfree"),lty=1,size=1.5)+
+  ylab(" Concentration (mg/L)")+ xlab("Time (hour)")+
+  scale_x_continuous(limits = c(0, 48))+
+  scale_fill_manual( breaks = c("Cendo_icfree","Cmid_icfree","Cepi_icfree"),
+                     values = c("#000000", "#E69F00", "#56B4E9"),
+                     labels = c("Cendo_icfree","Cmid_icfree","Cepi_icfree"))+
+  theme_bw()+theme(text=element_text(size=15),plot.margin = unit(c(5,5,5,5),"mm"))+#changed all plot margins from 5 to 10
+  labs(title="Concentration of free DOX after DNA/cardiolipin/mtDNA", size=1)
+plot4
+
+plot5 <-ggplot(data=data.frame(results), aes(x=time))+
+  geom_line(aes(y=Cadipose,col="Cadipose"),lty=1,size=1.5)+
+  geom_line(aes(y=Cbone,col= "Cbone"),lty=1,size=1.5)+
+  geom_line(aes(y=Cbrain,col= "Cbrain"),lty=1,size=1.5)+
+  geom_line(aes(y=Cgut,col= "Cgut"),lty=1,size=1.5)+
+  geom_line(aes(y=Ckidney,col= "Ckidney"),lty=1,size=1.5)+
+  geom_line(aes(y=Cliver,col= "Cliver"),lty=1,size=1.5)+
+  geom_line(aes(y=Clung,col= "Clung"),lty=1,size=1.5)+
+  geom_line(aes(y=Cmuscle,col= "Cmuscle"),lty=1,size=1.5)+
+  geom_line(aes(y=Cskin,col= "Cskin"),lty=1,size=1.5)+
+  geom_line(aes(y=Cheart,col= "Cheart"),lty=1,size=1.5)+
+  geom_line(aes(y=Cspleen,col= "Cspleen"),lty=1,size=1.5)+
+  geom_line(aes(y=Crest,col= "Crest"),lty=1,size=1.5)+
+  ylab(" Concentration (mg/L)")+ xlab("Time (hour)")+
+  scale_x_continuous(limits = c(0, 3))+
+  scale_fill_manual( breaks = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Crest"),
+                     values = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00","#CC79A7"),
+                     labels = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Crest"))+
+  theme_bw()+theme(text=element_text(size=15),plot.margin = unit(c(5,5,5,5),"mm"))+#changed all plot margins from 5 to 10
+  labs(title="Concentration of organs", size=1)
+plot5
+ggplotly(plot5)
+
+
+#fumic (fumic is fraction of DOX unbound in an in vitro microsomal preparation)
+fumic <- # [Venkatakrishnan 2001]
+  
+  # MPPGL(the microsomal protein density (MPPGL)) [mg/g] according to [Barter 2008] 
+  MPPGL <- 10 ^ (1.407 + 0.0158 * age - 0.00038 * (age ^ 2) + 0.0000024 *(age ^ 3))
+# the content of CYP1A2 and CYP3A4 in liver [pmol/mg protein]
+CYP1A2_L <- 52 
+CYP3A4_L <- 137 
+
+#1) LIVER
+#ISEF
+#values from Simcyp. rCYP system: Lymph B
+ISEF1A2 = 11.1
+ISEF3A4 = 3.92
+
+
+#Metabolism (hydroxylation)
+#LIVER (L)
+#Vmax for DOX after [pmol/min/pmol CYP]
+#Km for DOX [mcM]
+
+#1.CYP1A2
+V_1A2 <- 1.79 * MW * 10 ^ -9 #[mg/min/pmol CYP]
+K_1A2 <- 63.5 * MW * 10 ^ -3 #[mg/L]
+CLint_1A2 <- (ISEF1A2 * (V_1A2 / (K_1A2 + Cliver)) * CYP1A2_L) / fumic  #[L/min/mg of microsomal protein]
+#2.CYP3A4
+V_3A4 <- 3.37 * MW * 10 ^ -9 #[mg/min/pmol CYP]#[Ghahramani 1997]
+K_3A4 <- 213.8 * MW * 10 ^ -3 #[mg/L]
+CLint_3A4 <- (ISEF3A4 * (V_3A4 / (K_3A4 + Cliver)) * CYP3A4_L) / fumic  #[L/min/mg of microsomal protein]
+
+#sum of intrinsic clearances for demethylation for all CYPs isoforms
+CLint_demethylation_L <- (CLint_1A2 + CLint_3A4)  * 60 #[L/h/mg of microsomal protein]
+
+#Hepatic intrinsic clearance:
+CLint_L <- (CLint_demethylation_L + CLint_hydroxylation_L) * MPPGL * Vli * liver_density #[L/h]
+
+
+#HEART (H) CYP3A4 was not detected in heart tissue: assumed no metabolism of DOX in heart tissue
+CYP3A4_H <- 0 #CYP 3A4 abundance in average human heart [pmol/mg tissue][Thum 2000]
+
+
+
+write.xlsx(out, '~/Desktop/new_file.xlsx')
