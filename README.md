@@ -12,3 +12,4 @@ V2.8: organs; EC; ict  (works) maybe because of Abloodcell
 V2.9 : organs; EC; ict; bound for heart (only two results error!)
 V2.10 : organs; EC; ict  (works)
 V2.11 : improved version based on V2.10
+V2.12 : include intracellular binding
