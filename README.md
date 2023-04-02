@@ -14,3 +14,4 @@ V2.10 : organs; EC; ict  (works)
 V2.11 : improved version based on V2.10
 V2.12 : include intracellular binding
 V2.13 : except heart other intracellular binding
+V2.17 : Validation with Clinical data
