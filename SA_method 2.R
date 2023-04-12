@@ -352,27 +352,26 @@ PBPK <- function(X){
     Csp_E2 = Cardiolipin_sp,
     Csp_E3R = 0,
     Csp_E3 = mtDNA_sp
-  )  #sample_time <- c(0, 10/60, 1, 1*24, 7*24, 28*24) #in hours
+  )  
   
-  # Create a matrix to store the results of the ODEs system for each parametric sample
+# Create a matrix to store the results of the ODEs system for each parametric sample
   output <- matrix(0, nrow = nrow(X), ncol = 12)
   
-  # Define the CV of each parameter
+# Define the CV of each parameter
   cv <- rep(NA, length(init_prior))
   for (p in 1:length(init_prior)) {
     cv[p] <- 50/100
   }
   
-  
   eta <- init_prior
-  std <- cv*eta 
-  #Tranform from Normal to lognormal
+  std <- cv*eta
+#Tranform from Normal to lognormal
   eta_tr <- log((eta^2)/sqrt((eta^2)+std^2))
   std_tr <- sqrt(log(1 + (std^2)/(eta^2)))
   
-  # Calculate the solution of the ODEs sytem, considering the initial mean values of the parameters.
-  # This solution will replace the "NA" values which will occur from solution of the ODEs system 
-  # for some parametric samples
+# Calculate the solution of the ODEs sytem, considering the initial mean values of the parameters.
+# This solution will replace the "NA" values which will occur from solution of the ODEs system 
+# for some parametric samples
   average_run <-  solution <- ode(times = times, func = PBPKModel, y = state,
                                   parms = c(eta,parameters), method = "bdf")
   error_counter<<-0 # a counter to count how many times the integration failed
@@ -380,15 +379,15 @@ PBPK <- function(X){
   for (i in 1:nrow((X))) {
     print(paste("We are at iteration", i, sep = "  "))
     
-    # Inverse transform the sample from uniform[0,1] to the lognormal distributions of the Substance-Specific parameters
+# Inverse transform the sample from uniform[0,1] to the lognormal distributions of the Substance-Specific parameters
     u <- as.numeric(X[i,])
     inv_cdf <- exp(eta_tr + sqrt(2)*std_tr*erfinv(2*u - 1))
     names(inv_cdf) <-names(parameters)
     params <- c(inv_cdf,parameters)
     solution <- ode(times = times, func = PBPKModel, y = state, parms = params, method = "bdf")
     
-    # Check if the current parametric sample gave a "normal" ODEs solution (not "NA" values).
-    # If not, then replace this solution with the average solution (calculated above) in the output matrix
+# Check if the current parametric sample gave a "normal" ODEs solution (not "NA" values).
+# If not, then replace this solution with the average solution (calculated above) in the output matrix
     if (dim(solution)[1] != dim(average_run)[1]){
       solution <- average_run
       error_counter = error_counter + 1
@@ -399,20 +398,22 @@ PBPK <- function(X){
     Total_amounts <- solution[,35:46]
     
     for (k in 1:ncol(Total_amounts)) {
-      #Integrate the "Time" dimension by calculating the AUC of the "Total" curve of each compartment. 
+#Integrate the "Time" dimension by calculating the AUC of the "Total" curve of each compartment. 
       AUC <- sintegral(times, Total_amounts[,k], n.pts = 256)
       output[i,k] <- as.numeric(AUC["value"])
     }
     success <<- success
   }
-  #Return a matrix that each row contains the AUC results for all the compartments, of the corresponding parametric sample
+#Return a matrix that each row contains the AUC results for all the compartments, of the corresponding parametric sample
   return(output)
 }
+
 # Define the GSA method
 # It is considered that the sampling distribution is uniform(0,1) and the sample is transformed to 
 # lognormal inside the PBPK function. In addition, it is strongly recommended to set "scale=TRUE", in order to scale
 # the output matrix
-n<-2 # Number of samples for each parameter
+
+n<-10 # Number of samples for each parameter
 X1 <- data.frame(matrix(runif(length(init_prior) * n, min = 0, max = 1), nrow = n))
 X2 <- data.frame(matrix(runif(length(init_prior) * n, min = 0, max = 1), nrow = n))
 sobol_indices <- sobol2002(model=NULL, X1 = X1, X2 = X2, nboot = 0, conf = 0.95)
@@ -609,10 +610,7 @@ for (i in 1:12) {
 
 # Integration to eliminate the "Compartments" parameters.
 # The calculated weights are based on the AUC of mass collected in each compartment,
-# according to the experimental data
 
-
-sobol_data <- data.frame(param_names, first_weighted, total_weighted)
 sobol_data <- melt(sobol_data) #transform to long format the data
 
 Sobol_plot <- ggplot(sobol_indices, aes(param_names, sobol_indices$T, fill=variable))+
@@ -629,6 +627,7 @@ Sobol_plot <- ggplot(sobol_indices, aes(param_names, sobol_indices$T, fill=varia
 dev.off()
 
 print(Sobol_plot)
+
 ################################################################################################
 # Plots Sobol indexes for each compartment
 # Define the path where the plots should be saved automatically
