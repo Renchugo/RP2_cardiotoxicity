@@ -18,3 +18,6 @@ V2.17 : Validation with Clinical data
 V2.17.1 : Interindividual variability based on V2.17
 
 SA_method1 : sensitivity analysis (https://github.com/rbind/nanhung/blob/393268a6c9e2e87cee72df24c806732b2722d0dd/static/Rmd/2018-05-20-sensitivity-analysis-for-pbpk-model.Rmd)
+
+SA_method2 : sensitivity analysis
+(https://github.com/ntua-unit-of-control-and-informatics/TiO2_PBPK_IV/blob/45dbb427ab877fef04fbfb3d2ffc762eef1a422d/Sobol%20GSA_informative%20distributions.R)
