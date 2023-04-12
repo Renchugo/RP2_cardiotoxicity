@@ -15,3 +15,6 @@ V2.11 : improved version based on V2.10
 V2.12 : include intracellular binding
 V2.13 : except heart other intracellular binding
 V2.17 : Validation with Clinical data
+V2.17.1 : Interindividual variability based on V2.17
+
+SA_method1 : sensitivity analysis (https://github.com/rbind/nanhung/blob/393268a6c9e2e87cee72df24c806732b2722d0dd/static/Rmd/2018-05-20-sensitivity-analysis-for-pbpk-model.Rmd)
