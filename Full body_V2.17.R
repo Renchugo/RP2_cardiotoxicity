@@ -124,21 +124,21 @@ rm(list=ls(all=TRUE))
   Vplas_art = Vpl * (Var / (Vve + Var)) 	#arterial plasma
   
   #the concentration of DNA derive from [Daniel 2002]
-  DNA_li <- 23.7 * 0.1 #umol/L 
-  DNA_he <- 8.3 * 0.1  #umol/L 
-  DNA_ki <- 16.2 * 0.1  #umol/L 
-  DNA_bo <- 19.1 * 0.1  #umol/L 
-  DNA_gu <- 25.2 * 0.1  #umol/L 
+  DNA_li <- 23.7  #umol/L 
+  DNA_he <- 8.3  #umol/L 
+  DNA_ki <- 16.2  #umol/L 
+  DNA_bo <- 19.1  #umol/L 
+  DNA_gu <- 25.2  #umol/L 
   
-  DNA_mu <- 4.5 * 0.1  #umol/L Slowly perfused organs
-  DNA_ad <- 4.5 * 0.1  #umol/L 
-  DNA_sk <- 4.5 * 0.1  #umol/L 
-  DNA_sp <- 4.5 * 0.1  #umol/L 
+  DNA_mu <- 4.5  #umol/L Slowly perfused organs
+  DNA_ad <- 4.5  #umol/L 
+  DNA_sk <- 4.5  #umol/L 
+  DNA_sp <- 4.5  #umol/L 
   
-  DNA_br <- 1.5  * 0.1 #umol/L Rapidly perfused organ
-  DNA_lu <- 1.5  * 0.1  #umol/L 
+  DNA_br <- 1.5 #umol/L Rapidly perfused organ
+  DNA_lu <- 1.5  #umol/L 
   
-  DNA_bloodcell <- 0.01  * 0.1 #µmol/L assumption
+  DNA_bloodcell <- 0.01 #µmol/L assumption
   
   #the concentration of DNA derive from [Huahe]
   #DNA_lu <- 23500 #umol/L 
@@ -299,9 +299,8 @@ rm(list=ls(all=TRUE))
   #DISTRIBUTION  -------------------------------------------------------
   #Drug binding
   fup <- 0.26 #fraction unbound in plasma (Huahe)
-  fu_ec <- 1 #fraction unbound in extracellular fluid is assumed
-  fu_heart <- 1 #fraction unbound in heart is assumed
   
+  fu_heart <- 1 #fraction unbound in heart is assumed
   fuec_he <- 1 #fraction unbound in heart extracellular fluid is assumed
   fuec_bo <- 1 
   fuec_br <- 1 
@@ -700,7 +699,7 @@ rm(list=ls(all=TRUE))
       dCar <- (Qlu * (Clu_ec / Kplu * BP) - Qlu * Car - PER * SA_bloodcell * 0.001 * (Car* funionized_ec - (Cbloodcell/Kpp)* funionized_ic))/ Var 	#arterial blood
       
       # Extracellular sub-compartment
-      dChe_ec <- (Qhe * (Car - (Che_ec/Kphe) * BP) -(0.001 * PER * SA_myo * (Che_ec * fuec_he * funionized_ec - Cmyo_ict/(Kpec_he * Kpp) * funionized_ic)) - (0.001 * 0.0000756 *  SA_other * (Che_ec * fu_ec * funionized_ec - Cother_ict /(Kpec_he * Kpp) * funionized_ic)) ) / Vhe_ec
+      dChe_ec <- (Qhe * (Car - (Che_ec/Kphe) * BP) -(0.001 * PER * SA_myo * (Che_ec * fuec_he * funionized_ec - Cmyo_ict/(Kpec_he * Kpp) * funionized_ic)) - (0.001 * 0.0000756 *  SA_other * (Che_ec * fuec_he * funionized_ec - Cother_ict /(Kpec_he * Kpp) * funionized_ic)) ) / Vhe_ec
       dCad_ec <- (Qad * (Car - (Cad_ec/Kpad) * BP) - (0.001 * PER * SA_ad * (Cad_ec * fuec_ad * funionized_ec - Cad_ict/(Kpec_ad * Kpp) * funionized_ic)))/ Vad_ec 
       dCbo_ec <- (Qbo * (Car - (Cbo_ec/Kpbo) * BP) - (0.001 * PER * SA_bo * (Cbo_ec * fuec_bo * funionized_ec - Cbo_ict/(Kpec_bo * Kpp) * funionized_ic)))/ Vbo_ec
       dCbr_ec <- (Qbr * (Car - (Cbr_ec/Kpbr) * BP) - (0.001 * PER * SA_br * (Cbr_ec * fuec_br * funionized_ec - Cbr_ict/(Kpec_br * Kpp) * funionized_ic)))/ Vbr_ec
@@ -713,8 +712,8 @@ rm(list=ls(all=TRUE))
       dCsp_ec <- (Qsp * (Car - (Csp_ec/Kpsp) * BP) - (0.001 * PER * SA_sp * (Csp_ec * fuec_sp * funionized_ec - Csp_ict/(Kpec_sp * Kpp) * funionized_ic)))/ Vsp_ec
       
       # Subcompartments intracellular total concentration
-      dCmyo_ict <- (0.001 * PER * SA_myo * ((Che_ec * fu_ec * funionized_ec - Cmyo_ict/(Kpec_he * Kpp) * funionized_ic ) - (Cmyo_ict * fu_heart * CLint_heart * (Vmyo_ic/Vhe))) / Vmyo_ic) - (kon1 * Cmyo_ict * Cmyo_E1 - koff1 * Cmyo_E1R) - (kon2 * Cmyo_ict * Cmyo_E2 - koff2 * Cmyo_E2R ) - (kon3 * Cmyo_ict * Cmyo_E3 - koff3 * Cmyo_E3R )
-      dCother_ict <- (0.001 * 0.0000756 * SA_other * ((Che_ec * fu_ec * funionized_ec - Cother_ict/(Kpec_he * Kpp) * funionized_ic) - (Cother_ict * fu_heart * CLint_heart * (Vother_ic/Vhe)))/Vother_ic) - (kon1 * Cother_ict * Cother_E1 - koff1 * Cother_E1R) - (kon2 * Cother_ict * Cother_E2 - koff2 * Cother_E2R ) - (kon3 * Cother_ict * Cother_E3 - koff3 * Cother_E3R )
+      dCmyo_ict <- (0.001 * PER * SA_myo * ((Che_ec * fuec_he * funionized_ec - Cmyo_ict/(Kpec_he * Kpp) * funionized_ic ) - (Cmyo_ict * fu_heart * CLint_heart * (Vmyo_ic/Vhe))) / Vmyo_ic) - (kon1 * Cmyo_ict * Cmyo_E1 - koff1 * Cmyo_E1R) - (kon2 * Cmyo_ict * Cmyo_E2 - koff2 * Cmyo_E2R ) - (kon3 * Cmyo_ict * Cmyo_E3 - koff3 * Cmyo_E3R )
+      dCother_ict <- (0.001 * 0.0000756 * SA_other * ((Che_ec * fuec_he * funionized_ec - Cother_ict/(Kpec_he * Kpp) * funionized_ic) - (Cother_ict * fu_heart * CLint_heart * (Vother_ic/Vhe)))/Vother_ic) - (kon1 * Cother_ict * Cother_E1 - koff1 * Cother_E1R) - (kon2 * Cother_ict * Cother_E2 - koff2 * Cother_E2R ) - (kon3 * Cother_ict * Cother_E3 - koff3 * Cother_E3R )
       dCad_ict <- (0.001 * PER * SA_ad * ((Cad_ec * fuec_ad * funionized_ec - Cad_ict/(Kpec_ad * Kpp) * funionized_ic)) / Vad_ic) - (kon1 * Cad_ict * Cad_E1 - koff1 * Cad_E1R) - (kon2 * Cad_ict * Cad_E2 - koff2 * Cad_E2R) - (kon3 * Cad_ict * Cad_E3 - koff3 * Cad_E3R) 
       dCbo_ict <- (0.001 * PER * SA_bo * ((Cbo_ec * fuec_bo * funionized_ec - Cbo_ict/(Kpec_bo * Kpp) * funionized_ic)) / Vbo_ic) - (kon1 * Cbo_ict * Cbo_E1 - koff1 * Cbo_E1R) - (kon2 * Cbo_ict * Cbo_E2 - koff2 * Cbo_E2R) - (kon3 * Cbo_ict * Cbo_E3 - koff3 * Cbo_E3R) 
       dCbr_ict <- (0.001 * PER * SA_br * ((Cbr_ec * fuec_br * funionized_ec - Cbr_ict/(Kpec_br * Kpp) * funionized_ic)) / Vbr_ic) - (kon1 * Cbr_ict * Cbr_E1 - koff1 * Cbr_E1R) - (kon2 * Cbr_ict * Cbr_E2 - koff2 * Cbr_E2R) - (kon3 * Cbr_ict * Cbr_E3 - koff3 * Cbr_E3R) 
