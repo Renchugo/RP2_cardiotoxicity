@@ -194,19 +194,19 @@ rm(list=ls(all=TRUE))
     cn_sp <- 1892
     
     #  1 ng of mtDNA corresponds to approximately 1.52 x 10^-9 μmol, assuming a molecular weight of 6.6 x 10^5 g/mol
-    mtDNA_li <- (li_cell * (cn_li * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vli
-    mtDNA_he <- (he_cell * (cn_he * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vhe  
-    mtDNA_ki <- (ki_cell * (cn_ki * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vki  
-    mtDNA_bo <- (bo_cell * (cn_bo * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vbo
-    mtDNA_gu <- (gu_cell * (cn_gu * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vgu 
+    mtDNA_li <- (li_cell * (cn_li * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vli
+    mtDNA_he <- (he_cell * (cn_he * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vhe  
+    mtDNA_ki <- (ki_cell * (cn_ki * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vki  
+    mtDNA_bo <- (bo_cell * (cn_bo * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vbo
+    mtDNA_gu <- (gu_cell * (cn_gu * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vgu 
     
-    mtDNA_mu <- (mu_cell * (cn_mu * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vmu
-    mtDNA_ad <- (ad_cell * (cn_ad * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vad 
-    mtDNA_sk <- (sk_cell * (cn_sk * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vsk 
+    mtDNA_mu <- (mu_cell * (cn_mu * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vmu
+    mtDNA_ad <- (ad_cell * (cn_ad * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vad 
+    mtDNA_sk <- (sk_cell * (cn_sk * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vsk 
     
-    mtDNA_br <- (br_cell * (cn_br * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vbr 
-    mtDNA_lu <- (lu_cell * (cn_lu * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vlu 
-    mtDNA_sp <- (sp_cell * (cn_sp * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vsp 
+    mtDNA_br <- (br_cell * (cn_br * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vbr 
+    mtDNA_lu <- (lu_cell * (cn_lu * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vlu 
+    mtDNA_sp <- (sp_cell * (cn_sp * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vsp 
   }
   DNA_other <- 0.05 * DNA_he
   DNA_myo <- 0.95 * DNA_he
