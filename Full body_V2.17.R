@@ -19,8 +19,8 @@ rm(list=ls(all=TRUE))
 }
 
 {
-  t_end <- 24 #[h] time of the end of simulation
-  times <- seq(0, t_end, by = 0.01) #time of simulation
+  t_end <- 200 #[h] time of the end of simulation
+  times <- seq(0, t_end, by = 1) #time of simulation
   
   pKa <- 8.46 # [amine]
   MW <- 543.52 # g/mol
@@ -33,10 +33,10 @@ rm(list=ls(all=TRUE))
   BSA <- weight ^ 0.425 * height ^ 0.725 * 0.007184 #[m2] Body surface area according to [DuBois-DuBois 1916]
   
   oral_dose <- 0 #[mg] oral bolus dose
-  inf_dose_mg <- 33.6 * BSA #【mg】
+  inf_dose_mg <- 36 * BSA #【mg】
   
   inf_dose <- (inf_dose_mg * 0.001 / MW ) * 1000000 # [umol]
-  inf_time <- 3/60 #[h] infusion time
+  inf_time <- 1/60 #[h] infusion time
   
   CO  <- 1.1 * BSA - 0.05 * age + 5.5 #[L/min] cardiac output from Tylukia
   CO <- CO * 60 #[L/h] cardiac output units change from [L/min] to [L/h]
@@ -233,7 +233,7 @@ rm(list=ls(all=TRUE))
   koff1 <- Koff_DNA
   
   kon2 <- Kon_cardiolipin
-  koff2 <- Koff_cardiolipin
+  koff2 <- Koff_cardiolipin                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
   
   kon3 <- Kon_mtDNA
   koff3 <- Koff_mtDNA
@@ -704,7 +704,7 @@ rm(list=ls(all=TRUE))
       dCbo_ec <- (Qbo * (Car - (Cbo_ec/Kpbo) * BP) - (0.001 * PER * SA_bo * (Cbo_ec * fuec_bo * funionized_ec - Cbo_ict/(Kpec_bo * Kpp) * funionized_ic)))/ Vbo_ec
       dCbr_ec <- (Qbr * (Car - (Cbr_ec/Kpbr) * BP) - (0.001 * PER * SA_br * (Cbr_ec * fuec_br * funionized_ec - Cbr_ict/(Kpec_br * Kpp) * funionized_ic)))/ Vbr_ec
       dCgu_ec <- (Qgu * (Car - (Cgu_ec/Kpgu) * BP) - (0.001 * PER * SA_gu * (Cgu_ec * fuec_gu * funionized_ec - Cgu_ict/(Kpec_gu * Kpp) * funionized_ic)))/ Vgu_ec
-      dCki_ec <- ((Qki * (Car - (Cki_ec/Kpki) * BP) - parameters["CL_renal"] * Ckidneyfree) - (0.001 * PER * SA_ki * (Cki_ec * fuec_ki * funionized_ec - Cki_ict/(Kpec_ki * Kpp) * funionized_ic)))/ Vki_ec
+      dCki_ec <- ((Qki * (Car - (Cki_ec/Kpki) * BP) - CL_renal * Ckidneyfree) - (0.001 * PER * SA_ki * (Cki_ec * fuec_ki * funionized_ec - Cki_ict/(Kpec_ki * Kpp) * funionized_ic)))/ Vki_ec
       dCli_ec <- (((Qha * Car + Qgu * (Cgu_ec / Kpgu * BP) + Qsp * (Csp_ec / Kpsp * BP) - Qli * (Cli_ec / Kpli * BP) - CL_hepatic * Cliverfree)) - (0.001 * PER * SA_li * (Cli_ec * fuec_li * funionized_ec - Cli_ict/(Kpec_li * Kpp) * funionized_ic)))/ Vli_ec
       dClu_ec <- ((Qlu * Cve - Qlu * (Clu_ec / Kplu * BP)) - (0.001 * PER * SA_lu * (Clu_ec * fuec_lu * funionized_ec - Clu_ict/(Kpec_lu * Kpp) * funionized_ic)))/ Vlu_ec
       dCmu_ec <- (Qmu * (Car - (Cmu_ec/Kpmu) * BP) - (0.001 * PER * SA_mu * (Cmu_ec * fuec_mu * funionized_ec - Cmu_ict/(Kpec_mu * Kpp) * funionized_ic)))/ Vmu_ec
@@ -1028,7 +1028,7 @@ points(c(1.270,1.581,2.217,3.164,4.159,6.152,8.101,12.095,24.076,36.058,47.995),
 
 
 #Muller, 1993 Dose:36 Bolus Age:70 Cancer
-points(c(0.083,0.167,0.25,05,1,0.95,1.166,2.149,8.054,24.292,48.563,71.766,96.037,119.79,144.299,168.528,216.022),c(2.728,2.00,1.066,0.552,0.149,0.09,0.061,0.0389,0.0279,0.02,0.018,0.012,0.0104,0.009,0.007,0.004,0.003), pch=16, col= "black")
+points(c(0.083,0.167,0.25,0.5,1,0.95,1.166,2.149,8.054,24.292,48.563,71.766,96.037,119.79,144.299,168.528,216.022),c(2.728,2.00,1.066,0.552,0.149,0.09,0.061,0.0389,0.0279,0.02,0.018,0.012,0.0104,0.009,0.007,0.004,0.003), pch=16, col= "black")
 
 #Robert, 1983 Dose:35 Age:16-67 ADT:3min Cancer
 points(c(0.05,0.1,0.167,0.25,0.33), c(5.207,2.73,1.48,0.54,0.332), pch=16, col= "#009E73")

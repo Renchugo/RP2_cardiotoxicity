@@ -7,6 +7,12 @@ library(reshape2)
 ## Define the testing parameters (44)
 factors <- c(  "BP",
                "fup",
+               "Kon_cardiolipin",
+               "Koff_cardiolipin",
+               "Kon_DNA",
+               "Koff_DNA",
+               "Kon_mtDNA",
+               "Koff_mtDNA",
                "CL_renal",
                "CL_hepatic")
 
@@ -16,10 +22,22 @@ UL <- 1.1 # 10% upper limit
 # Define the lower and upper limits that will be the input to the morris function
 binf <- c(parameters["BP"]*LL, 
           parameters["fup"]*LL,
+          parameters["Kon_cardiolipin"]*LL,
+          parameters["Koff_cardiolipin"]*LL,
+          parameters["Kon_DNA"]*LL,
+          parameters["Koff_DNA"]*LL,
+          parameters["Kon_mtDNA"]*LL,
+          parameters["Koff_mtDNA"]*LL,
           parameters["CL_renal"]*LL,
           parameters["CL_hepatic"]*LL)
 bsup <-  c(parameters["BP"]*UL, 
            parameters["fup"]*UL,
+           parameters["Kon_cardiolipin"]*UL,
+           parameters["Koff_cardiolipin"]*UL,
+           parameters["Kon_DNA"]*UL,
+           parameters["Koff_DNA"]*UL,
+           parameters["Kon_mtDNA"]*UL,
+           parameters["Koff_mtDNA"]*UL,
            parameters["CL_renal"]*UL,
            parameters["CL_hepatic"]*UL)
 
@@ -39,6 +57,12 @@ for (i in 1:length(sample)) {
   for (iteration in 1:nrow(x$X)) { 
     parameters["BP"] = x$X[iteration,"BP"]
     parameters["fup"] = x$X[iteration,"fup"]
+    parameters["Kon_cardiolipin"] = x$X[iteration,"Kon_cardiolipin"]
+    parameters["Koff_cardiolipin"] = x$X[iteration,"Koff_cardiolipin"]
+    parameters["Kon_DNA"] = x$X[iteration,"Kon_DNA"]
+    parameters["Koff_DNA"] = x$X[iteration,"Koff_DNA"]
+    parameters["Kon_mtDNA"] = x$X[iteration,"Kon_mtDNA"]
+    parameters["Koff_mtDNA"] = x$X[iteration,"Koff_mtDNA"]
     parameters["CL_renal"] = x$X[iteration,"CL_renal"]
     parameters["CL_hepatic"] = x$X[iteration,"CL_hepatic"]
     
@@ -52,13 +76,25 @@ for (i in 1:length(sample)) {
       results = tmp[2,-1]
       sampled.parms = c(parameters["BP"], 
                         parameters["fup"],
-                         parameters["CL_renal"],
+                        parameters["Kon_cardiolipin"],
+                        parameters["Koff_cardiolipin"],
+                        parameters["Kon_DNA"],
+                        parameters["Koff_DNA"],
+                        parameters["Kon_mtDNA"],
+                        parameters["Koff_mtDNA"],
+                        parameters["CL_renal"],
                         parameters["CL_hepatic"])
     } else { # accumulate
       results = rbind(results, tmp[2,-1])
       sampled.parms = rbind(sampled.parms,
                             c(parameters["BP"], 
                               parameters["fup"],
+                              parameters["Kon_cardiolipin"],
+                              parameters["Koff_cardiolipin"],
+                              parameters["Kon_DNA"],
+                              parameters["Koff_DNA"],
+                              parameters["Kon_mtDNA"],
+                              parameters["Koff_mtDNA"],
                               parameters["CL_renal"],
                               parameters["CL_hepatic"]))
     }
