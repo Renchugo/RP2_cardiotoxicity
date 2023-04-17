@@ -135,8 +135,8 @@ rm(list=ls(all=TRUE))
   DNA_sk <- 4.5  #umol/L 
   DNA_sp <- 4.5  #umol/L 
   
-  DNA_br <- 1.5 #umol/L Rapidly perfused organ
-  DNA_lu <- 1.5  #umol/L 
+  DNA_br <- 15 #umol/L Rapidly perfused organ
+  DNA_lu <- 15  #umol/L 
   
   DNA_bloodcell <- 0.01 #µmol/L assumption
   

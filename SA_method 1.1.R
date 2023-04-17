@@ -108,6 +108,7 @@ for (i in 1:length(sample)) {
   } else {
     X <- rbind(X, apply(abs(x$ee), 2, mean))
   }
+  print(paste("finished iteration",i))
 }
 
 ## Number of repetitions and parameter sensitivity

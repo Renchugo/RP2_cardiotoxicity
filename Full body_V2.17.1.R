@@ -271,9 +271,10 @@ rm(list=ls(all=TRUE))
   
 }
 
+Population["fup"] <- rlnorm(N, meanlog = log(0.26^2 / sqrt(0.18^2 + 0.26^2)), sdlog = sqrt(log(1 + (0.18^2 / 0.26^2))))
+
 # TISSUE TO PLASMA PARTITION COEFFICIENT -------------------------------------------------------
 {
-  fup <- 0.26 #fraction unbound in plasma (Huahe)
   pH_iw <- 7 #pH of intracellular water
   pH_ew <- 7.4 #pH of extracellular water
   pH_rbc <- 7.15 #pH of red blood cells [swietach, 2010]
@@ -294,10 +295,11 @@ rm(list=ls(all=TRUE))
     Population['NP_ad'] <- (35.5 + 43.46 * Population$age /(1.5 + Population$age))*(0.2/79.2/100)                #NP: neutral phospholipid
     AP_ad <- 0.4 #mg/g the concentration of acidic phospholipids AP in adipose
     
-    Population['EW_bo'] <- (64.179 - 1.2697 * Population$age)*(9.8/43.9/100)
-    Population['IW_bo'] <- (64.179 - 1.2697 * Population$age)*(34.1/43.9/100)
-    Population['NL_bo'] <- (0.2 + 0.3655 * Population$age)*(7.4/7.51/100)
-    Population['NP_bo'] <- (0.2 + 0.3655 * Population$age)*(0.11/7.51/100)
+    # Bone
+    EW_bo <- 0.098
+    IW_bo <- 0.341
+    NL_bo <- 0.074
+    NP_bo <- 0.0011
     AP_bo <- 0.67 #mg/g the concentration of acidic phospholipids AP in Bone
     
     Population['EW_gu'] <- (75.378 - 0.3932 * log10(Population$age))*(26.7/71.8/100)
@@ -389,11 +391,11 @@ rm(list=ls(all=TRUE))
   # BP=1-Ht + EP*Ht 
   Population['BP'] <- 1- Population$HCT_male + 1.34 * Population$HCT_male  #blood plasma ratio
   
-  Population['Kpu_rbc'] <- (Population$BP + Population$HCT_male - 1) / (Population$HCT_male * fup)
+  Population['Kpu_rbc'] <- (Population$BP + Population$HCT_male - 1) / (Population$HCT_male * Population$fup)
   Population['KaAP'] <- (Population$Kpu_rbc - (X_rbc / X_ew * IW_rbc) - ((logPow * NL_rbc + (0.3 * logPow + 0.7) * NP_rbc) /X_ew)) * (X_ew /  (AP_rbc * Y_rbc))#affinity constant for acidic phospholipids (AP) 
   
   Population['Kpu_ad'] <- Population$EW_ad + (X_iw / X_ew) * Population$IW_ad + ( Pad * Population$NL_ad + (0.3 * P + 0.7) * Population$NP_ad) / Population$EW_ad + Population$KaAP * AP_ad * Y_iw / X_ew
-  Population['Kpu_bo'] <- Population$EW_bo + (X_iw / X_ew) * Population$IW_bo + ( P * Population$NL_bo + (0.3 * P + 0.7) * Population$NP_bo) / Population$EW_bo + Population$KaAP * AP_bo * Y_iw / X_ew
+  Population['Kpu_bo'] <- EW_bo + (X_iw / X_ew) * IW_bo + ( P * NL_bo + (0.3 * P + 0.7) * NP_bo) / EW_bo + Population$KaAP * AP_bo * Y_iw / X_ew
   Population['Kpu_br'] <- EW_br + (X_iw / X_ew) * IW_br + ( P * NL_br + (0.3 * P + 0.7) * NP_br) / EW_br + Population$KaAP * AP_br * Y_iw / X_ew
   Population['Kpu_gu'] <- Population$EW_gu + (X_iw / X_ew) * Population$IW_gu + ( P * Population$NL_gu + (0.3 * P + 0.7) * Population$NP_gu) / Population$EW_gu + Population$KaAP * AP_gu * Y_iw / X_ew
   Population['Kpu_he'] <- Population$EW_he + (X_iw / X_ew) * Population$IW_he + ( P * Population$NL_he + (0.3 * P + 0.7) * Population$NP_he) / Population$EW_he + Population$KaAP * AP_he * Y_iw / X_ew
@@ -406,19 +408,19 @@ rm(list=ls(all=TRUE))
   Population['Kpu_sp'] <- Population$EW_sp + (X_iw / X_ew) * Population$IW_sp + ( P * Population$NL_sp + (0.3 * P + 0.7) * Population$NP_sp) / Population$EW_sp + Population$KaAP * AP_sp * Y_iw / X_ew
   Population['Kpu_pl'] <- EW_pl + (X_iw / X_ew) * IW_pl + ( P * NL_pl + (0.3 * P + 0.7) * NP_pl) / EW_pl + Population$KaAP * AP_pl * Y_iw / X_ew
   
-  Population['Kpad'] <- Population$Kpu_ad * fup
-  Population['Kpbo'] <- Population$Kpu_bo * fup
-  Population['Kpbr'] <- Population$Kpu_br * fup
-  Population['Kpgu'] <- Population$Kpu_gu * fup
-  Population['Kphe'] <- Population$Kpu_he * fup
-  Population['Kpki'] <- Population$Kpu_ki * fup
-  Population['Kpli'] <- Population$Kpu_li * fup
-  Population['Kplu'] <- Population$Kpu_lu * fup
-  Population['Kpmu'] <- Population$Kpu_mu * fup
-  Population['Kpre'] <- Population$Kpu_pa * fup
-  Population['Kpsk'] <- Population$Kpu_sk * fup
-  Population['Kpsp'] <- Population$Kpu_sp * fup
-  Population['Kppl'] <- Population$Kpu_pl * fup
+  Population['Kpad'] <- Population$Kpu_ad * Population$fup
+  Population['Kpbo'] <- Population$Kpu_bo * Population$fup
+  Population['Kpbr'] <- Population$Kpu_br * Population$fup
+  Population['Kpgu'] <- Population$Kpu_gu * Population$fup
+  Population['Kphe'] <- Population$Kpu_he * Population$fup
+  Population['Kpki'] <- Population$Kpu_ki * Population$fup
+  Population['Kpli'] <- Population$Kpu_li * Population$fup
+  Population['Kplu'] <- Population$Kpu_lu * Population$fup
+  Population['Kpmu'] <- Population$Kpu_mu * Population$fup
+  Population['Kpre'] <- Population$Kpu_pa * Population$fup
+  Population['Kpsk'] <- Population$Kpu_sk * Population$fup
+  Population['Kpsp'] <- Population$Kpu_sp * Population$fup
+  Population['Kppl'] <- Population$Kpu_pl * Population$fup
   
   # tissue to plasma albumin ratio 
   ad_ratio <- 0.037
@@ -435,18 +437,18 @@ rm(list=ls(all=TRUE))
   sp_ratio <- 0.097
   
   # nonspecific protein binding (Kp) describe extracellular // intracellular
-  Kpec_he <-  (1- he_ratio) * fup + he_ratio
-  Kpec_ad <-  (1- ad_ratio) * fup + ad_ratio
-  Kpec_bo <-  (1- bo_ratio) * fup + bo_ratio
-  Kpec_br <-  (1- br_ratio) * fup + br_ratio
-  Kpec_gu <-  (1- gu_ratio) * fup + gu_ratio
-  Kpec_ki <-  (1- ki_ratio) * fup + ki_ratio
-  Kpec_li <-  (1- li_ratio) * fup + li_ratio
-  Kpec_lu <-  (1- lu_ratio) * fup + lu_ratio
-  Kpec_mu <-  (1- mu_ratio) * fup + mu_ratio
-  Kpec_sk <-  (1- sk_ratio) * fup + sk_ratio
-  Kpec_sp <-  (1- sp_ratio) * fup + sp_ratio
-  Kpec_pa <-  (1- pa_ratio) * fup + pa_ratio
+  Population['Kpec_he'] <-  (1- he_ratio) * Population$fup + he_ratio
+  Population['Kpec_ad'] <-  (1- ad_ratio) * Population$fup + ad_ratio
+  Population['Kpec_bo'] <-  (1- bo_ratio) * Population$fup + bo_ratio
+  Population['Kpec_br'] <-  (1- br_ratio) * Population$fup + br_ratio
+  Population['Kpec_gu'] <-  (1- gu_ratio) * Population$fup + gu_ratio
+  Population['Kpec_ki'] <-  (1- ki_ratio) * Population$fup + ki_ratio
+  Population['Kpec_li'] <-  (1- li_ratio) * Population$fup + li_ratio
+  Population['Kpec_lu'] <-  (1- lu_ratio) * Population$fup + lu_ratio
+  Population['Kpec_mu'] <-  (1- mu_ratio) * Population$fup + mu_ratio
+  Population['Kpec_sk'] <-  (1- sk_ratio) * Population$fup + sk_ratio
+  Population['Kpec_sp'] <-  (1- sp_ratio) * Population$fup + sp_ratio
+  Population['Kpec_pa'] <-  (1- pa_ratio) * Population$fup + pa_ratio
 }
 
 Population['inf_dose_mg'] <- 33.6 * Population$BSA_male #[mg] infusion dose according to Pfizer guidance : https://www.pfizermedicalinformation.com/en-us/doxorubicin/dosage-admin
@@ -537,6 +539,7 @@ ModelVar <- function(CO,
                      mtDNA_sk,
                      mtDNA_sp,
                      BP,
+                     fup,
                      Kpgu,
                      Kphe,
                      Kpki,
@@ -551,6 +554,18 @@ ModelVar <- function(CO,
                      Kpad,
                      Kpbo,
                      Kpbr,
+                     Kpec_he,
+                     Kpec_ad,
+                     Kpec_bo,
+                     Kpec_br,
+                     Kpec_gu,
+                     Kpec_ki,
+                     Kpec_li,
+                     Kpec_lu,
+                     Kpec_mu,
+                     Kpec_sk,
+                     Kpec_sp,
+                     Kpec_pa,
                      t_end,
                      inf_dose)
 {
@@ -572,8 +587,8 @@ ModelVar <- function(CO,
   DNA_sk <- 4.5 #umol/L 
   DNA_sp <- 4.5 #umol/L 
   
-  DNA_br <- 1.5 #umol/L Rapidly perfused organ
-  DNA_lu <- 1.5 #umol/L 
+  DNA_br <- 15 #umol/L Rapidly perfused organ
+  DNA_lu <- 15 #umol/L 
   
   DNA_bloodcell <- 0.01 #µmol/L assumption
   
@@ -1147,23 +1162,6 @@ ModelVar <- function(CO,
       parm = parameters
     )
   results <- data.frame(out)
-  par(mfcol = c(2, 1))
-  plot(
-    results$time,
-    results$Cheart,
-    type = "l",
-    col = "red",
-    xlab = "Time [h]",
-    ylab = "Concentration [umol/L]"
-  )
-  plot(
-    results$time,
-    results$PL,
-    type = "l",
-    col = "blue",
-    xlab = "Time [h]",
-    ylab = "Concentration [umol/L]"
-  )
   return(results)
 }
 
@@ -1249,6 +1247,7 @@ for (i in pop3$rn) {
       pop3$mtDNA_sk[i],
       pop3$mtDNA_sp[i],
       pop3$BP[i],
+      pop3$fup[i],
       pop3$Kpgu[i],
       pop3$Kphe[i],
       pop3$Kpki[i],
@@ -1263,10 +1262,23 @@ for (i in pop3$rn) {
       pop3$Kpad[i],
       pop3$Kpbo[i],
       pop3$Kpbr[i],
+      pop3$Kpec_he[i],
+      pop3$Kpec_ad[i],
+      pop3$Kpec_bo[i],
+      pop3$Kpec_br[i],
+      pop3$Kpec_gu[i],
+      pop3$Kpec_ki[i],
+      pop3$Kpec_li[i],
+      pop3$Kpec_lu[i],
+      pop3$Kpec_mu[i],
+      pop3$Kpec_sk[i],
+      pop3$Kpec_sp[i],
+      pop3$Kpec_pa[i],
       t_end,
       pop3$inf_dose[i]
     )
   )
+  print(paste("finished subject male",i))
 }
 
 results_list = lapply(ls(pattern = "output[0-9]"), get)
