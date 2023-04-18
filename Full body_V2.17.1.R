@@ -210,7 +210,7 @@ rm(list=ls(all=TRUE))
                                                  )))
   )))) #[mcm^2]
   
-  Population['MVol'] <- as.vector(Population$MV * (10 ^ -12)) #[L] random age dependent myocate volume in cm3 -> changing to liters
+  Population['MVol'] <- as.vector(Population$MV * (10 ^ -15)) #[L] random age dependent myocate volume in um3 -> changing to liters
   
   #cells amounts -------------------------------------------------------
   Population['cell_amount_other'] <- Population$Vother_ic / Population$MVol #other heart tissue

@@ -33,7 +33,7 @@ rm(list=ls(all=TRUE))
   BSA <- weight ^ 0.425 * height ^ 0.725 * 0.007184 #[m2] Body surface area according to [DuBois-DuBois 1916]
   
   oral_dose <- 0 #[mg] oral bolus dose
-  inf_dose_mg <- 36 * BSA #【mg】
+  inf_dose_mg <- 60 * BSA #【mg】
   
   inf_dose <- (inf_dose_mg * 0.001 / MW ) * 1000000 # [umol]
   inf_time <- 1/60 #[h] infusion time
@@ -244,7 +244,7 @@ rm(list=ls(all=TRUE))
   # CARDIOMYOCYTE VOLUME AND SURFACE AREA according to [Polak 2012] -------------------------------------------------------
   MV <- exp(age * 0.04551 + 7.36346) #[um^3]
   MSA <-exp(0.860 * log(MV) )#[um^2]
-  MVol <- MV * (10 ^ -12) #[L] random age dependent myocate volume in cm3 -> changing to liters
+  MVol <- MV * (10 ^ -15) #[L] random age dependent myocate volume in um3 -> changing to liters dm3
   
   #cells amounts -------------------------------------------------------
   cell_amount_other <- Vother_ic / MVol #other heart tissue
