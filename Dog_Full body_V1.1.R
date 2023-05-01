@@ -14,19 +14,19 @@ rm(list=ls(all=TRUE))
   require(plotly)
   require(openxlsx)
   require(dplyr)
-  #require(ggquickeda)
-  #require(pksensi)
-  #require(sensitivity)
+  require(ggquickeda)
+  require(pksensi)
+  require(sensitivity)
 }
 
 #Scenario
-t_end <- 6 #[h] time of the end of simulation
+t_end <- 1 #[h] time of the end of simulation
 oral_dose <- 0 #[mg] oral bolus dose
 #inf_dose_mg <- 30 # [mg/BSA]
 #inf_dose_mg <- 1 * weight  # [mg] 
 inf_time <- 3/60 #[h] infusion time
 t <- inf_time
-Sample_time <- 0.1
+Sample_time <- 0.01
 
 #Doxorubicin
 pKa <- 8.46 # [amine]
@@ -647,11 +647,11 @@ MW <- 543.52 # g/mol
   #r = inf_dose #[umol]
   #t = inf_time #time of infusion [h]
   #inf = r / t #infusion rate [umol/h]
-  
+  #CL_sys <- 50
   #MODEL ----------
   ModelVar <- function(inf_dose,
-                       CO,
                        CL_sys,
+                       CO,
                        Vve,
                        Var,
                        SA_myo,
@@ -722,8 +722,7 @@ MW <- 543.52 # g/mol
                        Vplas_ven,
                        cell_amount_other,
                        cell_amount_myo,
-                       t_end,
-                       inf)
+                       t_end)
 
  {
 
@@ -737,9 +736,9 @@ MW <- 543.52 # g/mol
     
     # MODEL -------------------------------------------------------------------
     parameters <- c(
+      CL_sys = CL_sys,
       BP = BP,
       fup = fup,
-      CL_sys = CL_sys,
       DNA_li = DNA_li,
       DNA_he = DNA_he,
       DNA_ki = DNA_ki,
@@ -783,20 +782,19 @@ MW <- 543.52 # g/mol
       
       Kon_cardiolipin = Kon_cardiolipin,
       Koff_cardiolipin = Koff_cardiolipin,
-      
       Kon_DNA = Kon_DNA,
       Koff_DNA = Koff_DNA,
       
       Kon_mtDNA = Kon_mtDNA,
-      Koff_mtDNA = Koff_mtDNA)
-   
+      Koff_mtDNA = Koff_mtDNA
+    )
     
     # State variables -------------------------------------------------------
     state <- c(
-      INFUSION = r,
+      INFUSION = inf_dose,
       Cve = 0,
       Car = 0,
-
+      
       Che_ec = 0,
       Cad_ec = 0,
       Cbo_ec = 0,
@@ -929,10 +927,12 @@ MW <- 543.52 # g/mol
         #Cliverfree <-  Cli_ec * (fup / BP)  #liver free concentration
         #Ckidneyfree <- Cki_ec * (fup / BP) #kidney free concentration
         Cplasmavenous <- Cve / BP	#venous plasma concentration
-      
+        Cplasmavenous_free <- Cve * (fup /BP)
+        
+        
         ## rates of changes
         dINFUSION <- -inf
-        dCve <- (inf + Qad * (Cad_ec / Kpad * BP) - (CL_sys * Cplasmavenous) + Qbo * (Cbo_ec / Kpbo * BP) + Qbr * (Cbr_ec / Kpbr * BP) + Qki* (Cki_ec / Kpki * BP) + Qli * (Cli_ec / Kpli * BP) + Qmu* (Cmu_ec / Kpmu * BP) + Qsk* (Csk_ec / Kpsk * BP)+ Qhe * (Che_ec / Kphe * BP) + Qre * (Cre_ec / Kpre * BP) - Qlu * Cve - PER * SA_bloodcell * 0.001 * (Cve* funionized_ec - (Cbloodcell/Kpp)* funionized_ic))/ Vve #venous blood
+        dCve <- ((inf + Qad * (Cad_ec / Kpad * BP) + Qbo * (Cbo_ec / Kpbo * BP) + Qbr * (Cbr_ec / Kpbr * BP) + Qki* (Cki_ec / Kpki * BP) + Qli * (Cli_ec / Kpli * BP) + Qmu* (Cmu_ec / Kpmu * BP) + Qsk* (Csk_ec / Kpsk * BP)+ Qhe * (Che_ec / Kphe * BP) + Qre * (Cre_ec / Kpre * BP) - Qlu * Cve - PER * SA_bloodcell * 0.001 * (Cve* funionized_ec - (Cbloodcell/Kpp)* funionized_ic))/ Vve) - ((CL_sys * Cplasmavenous)/Vve) #venous blood
         dCar <- (Qlu * (Clu_ec / Kplu * BP) - Qlu * Car - PER * SA_bloodcell * 0.001 * (Car* funionized_ec - (Cbloodcell/Kpp)* funionized_ic))/ Var 	#arterial blood
         
         # Extracellular sub-compartment
@@ -1232,14 +1232,15 @@ MW <- 543.52 # g/mol
         )
       })
     }
-  out <-
-    ode(y = state,
-        times = times,
-        func = PBPKModel,
-        parm = parameters)
-  
-results <- data.frame(out)
-return(results)
+    out <-
+      ode(y = state,
+          times = times,
+          func = PBPKModel,
+          parm = parameters,
+          hmax= 0.01,
+          rtol = 1e-8,
+          atol = 1e-8
+      )
 }
 
 # APPLYING THE MODEL ------------------------------------------------------
@@ -1341,8 +1342,8 @@ plot(
 ) 
 
 plot(
-  results$time,
-  results$PL,
+  `output 1`$
+  `output 1`$PL,
   type = "l",
   col = "blue",
   xlab = "Time [h]",
