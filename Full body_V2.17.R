@@ -19,8 +19,8 @@ rm(list=ls(all=TRUE))
 }
 
 {
-  t_end <- 200 #[h] time of the end of simulation
-  times <- seq(0, t_end, by = 1) #time of simulation
+  t_end <- 168 #[h] time of the end of simulation
+  times <- seq(0, t_end, by = 0.1) #time of simulation
   
   pKa <- 8.46 # [amine]
   MW <- 543.52 # g/mol
@@ -686,7 +686,7 @@ rm(list=ls(all=TRUE))
   PBPKModel = function(times, state, parameters) {
     with(as.list(c(state, parameters)), {
       inf <- ifelse(times <= t, inf, 0)
-      
+    
       #DOX concentrations:
       Cliverfree <-  Cli_ec * (fup / BP)  #liver free concentration
       Ckidneyfree <- Cki_ec * (fup / BP) #kidney free concentration
@@ -995,8 +995,8 @@ plot(
   type = "l",
   col = "blue",
   xlab = "Time [h]",
-  ylab = "Blood cell Concentration [umol/L]"
-  #log = "y", # set y-axis to log scale
+  ylab = "Blood cell Concentration [umol/L]",
+  log = "y" # set y-axis to log scale
   #yticks = c(10000, 1000, 100, 10, 1, 0.1, 0.01, 0.001) # set y-axis tick marks
 ) 
 
@@ -1007,9 +1007,12 @@ plot(
   col = "blue",
   xlab = "Time [h]",
   ylab = "Plasma Concentration [umol/L]",
-  log = "y", # set y-axis to log scale
-  yticks = c(10000, 1000, 100, 10, 1, 0.1, 0.01, 0.001) # set y-axis tick marks
+  #xlim = c(min(results$time), max(results$time) * 1.3),
+  #ylim = c(min(results$PL), max(results$PL) * 1.1)
+  log = "y" # set y-axis to log scale
+  #yticks = c(10000, 1000, 100, 10, 1, 0.1, 0.01, 0.001) # set y-axis tick marks
 ) 
+
 
 {
 # Validation data point
@@ -1077,9 +1080,8 @@ points(c(0.533,1.349),c(0.115,0.164),pch=16, col= "black")
 #Eksborg, 1986 Dose: 40mg IV bolus Time: 3 min Age:42-70 Ovarian carcinoma (Time after adm (hr)) 
 points(c(0.000+0.05,0.141+0.05,0.449+0.05,0.652+0.05,0.905+0.05,1.914+0.05,2.950+0.05,5.962+0.05,11.952+0.05,17.914+0.05,23.927+0.05),c(2.078,0.431,0.101,0.054,0.046,0.025,0.023,0.014,0.009,0.007,0.009),pch=16, col= "black")
 
+
 #Chan, 1978 IV bolus Time: 1-2 minSolid tumors
-# Patient 1: hepatoma, normal renal/hep function, 30 mg/m2
-points(c(0.170,0.150,0.356,0.608,0.788,1.029,1.759,2.755,3.819,4.791),c(1.098,0.740,0.359,0.239,0.185,0.149,0.101,0.112,0.076,0.059),pch=16, col= "black")
 # Patient 7: soft tissue sarcoma, normal ren/hep function, 35 mg/m2
 points(c(0.214,0.295,0.639,1.177,2.199,2.941,3.992,6.240,7.506,13.028,23.432,32.487),c(0.929,0.670,0.257,0.127,0.117,0.140,0.105,0.068,0.078,0.080,0.061,0.060),pch=16, col= "black")
 # Patient 11: embryo cell carcinoma, normal ren/hep function, 30 mg/m2
@@ -1096,6 +1098,46 @@ points(c(0.164,0.521,0.994,1.382,4.922,19.987),c(0.257,0.062,0.045,0.026,0.021,0
 points(c(0.020,0.147,0.430,0.672,0.914,1.930,2.890,5.858,11.833,17.935,23.928),c(3.865,0.387,0.163,0.111,0.081,0.055,0.045,0.038,0.024,0.020,0.013),pch=16, col= "black")
 }
 
+
+plot(
+  results$time,
+  results$Cmu_ec,
+  type = "l",
+  col = "blue",
+  xlab = "Time [h]",
+  ylab = "Muscle Concentration [umol/L]"
+  # log = "y"# set y-axis to log scale
+  #yticks = c(10000, 1000, 100, 10, 1, 0.1, 0.01, 0.001) # set y-axis tick marks
+)
+
+# Lee, 2020 Dose: 30mg/m^2 IV bolus
+points(c(1.35, 2.38),c(1.54 , 1.08),pch=16,col= "black") #intestine
+points(x = max(results$time) * 0.35, y = max(results$PL* 0.8) , pch = 16, col = "black", cex = 1.0)
+text(x = max(results$time) * 0.36, y = max(results$PL* 0.8) , labels = "Gut (30mg/m^2 lee 2020)", pos = 4, cex = 1.0, col = "black", font = 2)
+
+
+
+points(c(0.47,2.00,3.99),c(5.99,2.48 , 2.30),pch=16,col= "black") #liver
+points(x = max(results$time) * 0.35, y = max(results$PL* 0.8) , pch = 16, col = "black", cex = 1.0)
+text(x = max(results$time) * 0.36, y = max(results$PL* 0.8) , labels = "Liver (30mg/m^2 lee 2020)", pos = 4, cex = 1.0, col = "black", font = 2)
+
+
+points(c(1.87, 2.39,2.42,3.41,3.43),c(0.37,0.36,0.33,0.40,0.44),pch=16,col= "black") #Muscle
+
+points(c(1.99, 2.45,2.48,3.49,3.98),c(2.47,0.21, 0.15,0.33,2.28),pch=16,col= "black") #Adipose
+points(x = max(results$time) * 0.35, y = max(results$PL* 0.8) , pch = 16, col = "black", cex = 1.0)
+text(x = max(results$time) * 0.36, y = max(results$PL* 0.8) , labels = "Adipose (30mg/m^2 lee 2020)", pos = 4, cex = 1.0, col = "black", font = 2)
+
+
+
+
+# Lee, 2020 Dose: 10mg muscle
+points(c(0.12,0.45,0.92,1.37),c(0.12,0.09,0.08,0.07),pch=16,col= "black") 
+points(x = max(results$time) * 0.35, y = max(results$PL* 0.8) , pch = 16, col = "black", cex = 1.0)
+text(x = max(results$time) * 0.36, y = max(results$PL* 0.8) , labels = "Muscle (10mg lee 2020)", pos = 4, cex = 1.0, col = "black", font = 2)
+
+
+# EC_concentration
 plot5 <-ggplot(data=data.frame(results), aes(x=time))+
   geom_line(aes(y=Cad_ec,col="Cadipose"),lty=1,size=1.5)+
   geom_line(aes(y=Cbo_ec,col= "Cbone"),lty=1,size=1.5)+
@@ -1115,9 +1157,38 @@ plot5 <-ggplot(data=data.frame(results), aes(x=time))+
                      values = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00","#CC79A7"),
                      labels = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Crest"))+
   theme_bw()+theme(text=element_text(size=15),plot.margin = unit(c(5,5,5,5),"mm"))+#changed all plot margins from 5 to 10
-  labs(title="Concentration of organs", size=1)
+  labs(title="Concentration of organs", size=1)+
+  scale_y_log10()
 plot5
 ggplotly(plot5)
+
+
+# ICT_concentration
+plot6 <-ggplot(data=data.frame(results), aes(x=time))+
+  geom_line(aes(y=Cad_ict,col="Cadipose"),lty=1,size=1.5)+
+  geom_line(aes(y=Cbo_ict,col= "Cbone"),lty=1,size=1.5)+
+  geom_line(aes(y=Cbr_ict,col= "Cbrain"),lty=1,size=1.5)+
+  geom_line(aes(y=Cgu_ict,col= "Cgut"),lty=1,size=1.5)+
+  geom_line(aes(y=Cki_ict,col= "Ckidney"),lty=1,size=1.5)+
+  geom_line(aes(y=Cli_ict,col= "Cliver"),lty=1,size=1.5)+
+  geom_line(aes(y=Clu_ict,col= "Clung"),lty=1,size=1.5)+
+  geom_line(aes(y=Cmu_ict,col= "Cmuscle"),lty=1,size=1.5)+
+  geom_line(aes(y=Csk_ict,col= "Cskin"),lty=1,size=1.5)+
+  geom_line(aes(y=Cmyo_ict,col= "Cmyocardial"),lty=1,size=1.5)+
+  geom_line(aes(y=Csp_ict,col= "Cspleen"),lty=1,size=1.5)+
+  geom_line(aes(y=Cother_ict,col= "Cother"),lty=1,size=1.5)+
+  ylab(" Concentration [umol/L]")+ xlab("Time (hour)")+
+  scale_x_continuous(limits = c(0, 10))+
+  scale_fill_manual( breaks = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cmyocardial","Cspleen","Cother"),
+                     values = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00","#CC79A7"),
+                     labels = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cmyocardial","Cspleen","Cother"))+
+  theme_bw()+theme(text=element_text(size=15),plot.margin = unit(c(5,5,5,5),"mm"))+#changed all plot margins from 5 to 10
+  labs(title="Intracellular concentration of organs", size=1)+
+  scale_y_log10()
+plot6
+ggplotly(plot6)
+
+
 
 {
 #Evaluate the effect of Kd/ Koff (negligible effect)
@@ -1193,6 +1264,7 @@ plot_PL_kd <-ggplot(data=data.frame(PL_kd), aes(x=time))+
     theme_bw()+theme(text=element_text(size=15),plot.margin = unit(c(5,5,5,5),"mm"))+#changed all plot margins from 5 to 10
     labs(title="The effect of Kd on plasma concentration", size=1)
 plot_PL_kd
+ggplotly(plot_PL_kd)
 
 plot_Heartec_kd <-ggplot(data=data.frame(Heartec_kd), aes(x=time))+
   geom_line(aes(y=Kd,col="Kd"),lty=1,size=1.5)+
@@ -1217,7 +1289,7 @@ plot_Myoict_kd <-ggplot(data=data.frame(Myoict_kd), aes(x=time))+
   theme_bw()+theme(text=element_text(size=15),plot.margin = unit(c(5,5,5,5),"mm"))+#changed all plot margins from 5 to 10
   labs(title="The effect of Kd on Myocardial concentration", size=1)
 plot_Myoict_kd
-  
+  ggplotly(plot_Myoict_kd)
 
 #Evaluate the effect of the concentration
 #Expand concentration to 10 times larger
