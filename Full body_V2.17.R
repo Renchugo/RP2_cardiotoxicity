@@ -20,7 +20,7 @@ rm(list=ls(all=TRUE))
 
 {
   t_end <- 168 #[h] time of the end of simulation
-  times <- seq(0, t_end, by = 0.1) #time of simulation
+  times <- seq(0, t_end, by = 1) #time of simulation
   
   pKa <- 8.46 # [amine]
   MW <- 543.52 # g/mol
@@ -37,6 +37,24 @@ rm(list=ls(all=TRUE))
   
   inf_dose <- (inf_dose_mg * 0.001 / MW ) * 1000000 # [umol]
   inf_time <- 1/60 #[h] infusion time
+  
+  # Define the infusion schedule
+  num_doses <- 7 # Number of doses to be administered
+  dosing_interval <- 24 # Interval between doses in hours
+  infusion_schedule <- seq(0, by = dosing_interval, length.out = num_doses)
+  
+  # Function to calculate the infusion rate at a given time
+  infusion_rate_at_time <- function(times, infusion_schedule, infusion_time, inf_rate) {
+    is_infusion_time <- sapply(infusion_schedule, function(start_time) {
+      times >= start_time & times <= start_time + infusion_time
+    })
+    if (any(is_infusion_time)) {
+      return(inf_rate)
+    } else {
+      return(0)
+    }
+  }
+  
   
   CO  <- 1.1 * BSA - 0.05 * age + 5.5 #[L/min] cardiac output from Tylukia
   CO <- CO * 60 #[L/h] cardiac output units change from [L/min] to [L/h]
@@ -685,8 +703,9 @@ rm(list=ls(all=TRUE))
   ###Differential equations - umol/h/L -------------------------------------------------------
   PBPKModel = function(times, state, parameters) {
     with(as.list(c(state, parameters)), {
-      inf <- ifelse(times <= t, inf, 0)
-    
+      # Calculate the infusion rate at a specific time point 'times'
+      inf <- infusion_rate_at_time(times, infusion_schedule, inf_time, inf)
+      
       #DOX concentrations:
       Cliverfree <-  Cli_ec * (fup / BP)  #liver free concentration
       Ckidneyfree <- Cki_ec * (fup / BP) #kidney free concentration
@@ -1013,6 +1032,18 @@ plot(
   #yticks = c(10000, 1000, 100, 10, 1, 0.1, 0.01, 0.001) # set y-axis tick marks
 ) 
 
+plot(
+  results$time,
+  results$Cmyo_ict,
+  type = "l",
+  col = "blue",
+  xlab = "Time [h]",
+  ylab = "Myocardial Concentration [umol/L]",
+  #xlim = c(min(results$time), max(results$time) * 1.3),
+  #ylim = c(min(results$PL), max(results$PL) * 1.1)
+  log = "y" # set y-axis to log scale
+  #yticks = c(10000, 1000, 100, 10, 1, 0.1, 0.01, 0.001) # set y-axis tick marks
+) 
 
 {
 # Validation data point
