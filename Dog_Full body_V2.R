@@ -1,8 +1,8 @@
 # Based on Full body_v2.17 (human model)
 # Based on V 2.13.1
 # The concentration ratio of myo and other (PER for other is set to 1000 lower than myo)
-# The blood cell intracellular binding
-# Kd only has a little negligible effect
+
+
 rm(list=ls(all=TRUE))
 
 #REQUIRED PACKAGES:
@@ -20,36 +20,67 @@ rm(list=ls(all=TRUE))
 }
 
 {
-  t_end <- 6 #[h] time of the end of simulation
-  Sample_time <- 0.1
+  t_end <- 720 #[h] time of the end of simulation
+  Sample_time <- 0.05
   times <- seq(0, t_end, by = Sample_time) #time of simulation
+  
+  #Infusion schedule----
+  num_doses <- 5
+  dosing_interval <- 144
+  infusion_schedule <- seq(0, by = dosing_interval, length.out = num_doses)
+  
+  #Function to calculate the infusion rate at a given time
+  infusion_rate_at_time <- function(times, infusion_schedule, infusion_time, inf_rate) {
+    is_infusion_time <- sapply(infusion_schedule, function(start_time) {
+      times >= start_time & times <= start_time + infusion_time
+    })
+    if (any(is_infusion_time)) {
+      return(inf_rate)
+    } else {
+      return(0)
+    }
+  }
+  
   
   pKa <- 8.46 # [amine]
   MW <- 543.52 # g/mol
   
   #Physiological parameters of patients-------------------------------------------------------------------
-  age <- 2 #the age of chosen sample
-  gender <- 'male'
-  weight <- 10 #[kg] 
-  height <- 40 #[cm]
+  weight <- 12 #[kg] 
+  height <- 35 #[cm]
   length <- 60 #[cm]
   BSA <- 0.101 * (weight^(2/3)) #[m2] BSAVA: https://www.bsavalibrary.com/content/formulary/backmatter/canine-and-felinebodyweightbwtobodysurfaceareabsaconversiontables
   
+  #Scalars----
+  #For manual optimization
+  #1 means no conversion
+  CV_DNA <- 1 #DNA Concentration
+  CV_mtDNA <- 1 #mtDNA Concentration
+  CV_cl <- 1 #Cardiolipin Concentration
+  CV_PER <- 1 #PER
   
-  #Plasma clearance
+  
+  #Plasma clearance----
   #CL <- 17.2 # [ml/min/kg] Baldwin et al 1992 
   #CL <- 79 #[ml/min/kg] Ku et al 1997
-  CL <- 50 #[ml/min/kg] optimized 
+  
+  #CL <- 50 #[ml/min/kg] optimized 
   
   CL_sys <- weight * CL * 60 / 1000 #ml/min to l/h
-    
+  
+  CL_sys <- 30 
+   
   oral_dose <- 0 #[mg] oral bolus dose
+  
   inf_dose_mg <- 30 * BSA # [mg]
-  #inf_dose_mg <- 1 * weight  # [mg] 
+  #inf_dose_mg <- 2 * weight  # [mg] 
   
   inf_dose <- (inf_dose_mg * 0.001 / MW ) * 1000000 # [umol]
-  inf_time <- 3/60 #[h] infusion time
+  inf_time <- 1 #[h] infusion time
   
+}
+  #Cardiac output ----
+{  
   CO  <- 2049 #[ml/min] SimCyp Beagles
   CO <- CO * 60 / 1000 #units change from [ml/min] to [L/h]
   
@@ -181,22 +212,23 @@ rm(list=ls(all=TRUE))
   
   #the concentration of nucleotide DNA derived from [Gustafson 2001] [based on formula weight of 330.9 g/mol]
   #conversion from single nucleotide (MW: 330) to base pair (MW:660) as DOX intercalates base pairs
-  DNA_li <- 14.6 * 330 / 660 #umol/L 
-  DNA_he <- 3.2 * 330 / 660 #umol/L 
-  DNA_ki <- 13.5 * 330 / 660  #umol/L 
-  DNA_bo <- 23.7 * 330 / 660 #umol/L 
-  DNA_gu <- 8.1 * 330 / 660 #umol/L 
+DNA_li <- (14.6 * 330 / 660) * CV_DNA #umol/L 
+DNA_he <- (3.2 * 330 / 660) * CV_DNA #umol/L 
+DNA_ki <- (13.5 * 330 / 660) * CV_DNA  #umol/L 
+DNA_bo <- (23.7 * 330 / 660) * CV_DNA #umol/L 
+DNA_gu <- (8.1 * 330 / 660) * CV_DNA #umol/L 
   
-  DNA_mu <- 4.5 * 330 / 660 #umol/L Slowly perfused organs
-  DNA_ad <- 4.5 * 330 / 660 #umol/L 
-  DNA_sk <- 4.5 * 330 / 660 #umol/L 
-  DNA_sp <- 4.5 * 330 / 660 #umol/L 
-  DNA_re <- 4.5 * 330 / 660 #umol/L
+DNA_mu <- (4.5 * 330 / 660) * CV_DNA #umol/L Slowly perfused organs
+DNA_ad <- (4.5 * 330 / 660) * CV_DNA #umol/L 
+DNA_sk <- (4.5 * 330 / 660) * CV_DNA #umol/L 
+DNA_sp <- (4.5 * 330 / 660) * CV_DNA #umol/L 
+DNA_re <- (4.5 * 330 / 660) * CV_DNA #umol/L
   
-  DNA_br <- 15 * 330 / 660 #umol/L Rapidly perfused organ
-  DNA_lu <- 15 * 330 / 660 #umol/L 
+  DNA_br <- (15 * 330 / 660) * CV_DNA #umol/L Rapidly perfused organ
+  DNA_lu <- (15 * 330 / 660) * CV_DNA #umol/L
+  DNA_pa <- (15 * 330 / 660) * CV_DNA #umol/L
   
-  DNA_bloodcell <- 4.5 * 330 / 660 * 0.45 * 0.01 #µmol/L assumption [only WBCs (1% of blood cells) contain DNA, blood cells ~ 45% of whole blood]
+  DNA_bloodcell <- (4.5 * 330 / 660 * 0.45 * 0.01) * CV_DNA #µmol/L assumption [only WBCs (1% of blood cells) contain DNA, blood cells ~ 45% of whole blood]
   
   #the concentration of DNA derive from [Huahe]----
   #DNA_lu <- 23500 #umol/L 
@@ -206,161 +238,131 @@ rm(list=ls(all=TRUE))
   #DNA_ki <- 12500
   #DNA_he <- 45900
   #Cardiolipin----
-  Cardiolipin_li <- 44.6  #umol/L 
-  Cardiolipin_he <- 43.8  #umol/L 
-  Cardiolipin_ki <- 52.3  #umol/L 
-  Cardiolipin_bo <- 25
-  Cardiolipin_gu <- 25 
+  Cardiolipin_li <- 44.6 * CV_cl  #umol/L 
+  Cardiolipin_he <- 43.8 * CV_cl #umol/L 
+  Cardiolipin_ki <- 52.3 * CV_cl #umol/L 
+  Cardiolipin_bo <- 25 * CV_cl
+  Cardiolipin_gu <- 25 * CV_cl
   
-  Cardiolipin_ad <- 15 #umol/L  Slowly perfused
-  Cardiolipin_mu <- 15  
-  Cardiolipin_sk <- 15  
-  Cardiolipin_sp <- 15 
-  Cardiolipin_re <- 15
+  Cardiolipin_ad <- 15 * CV_cl #umol/L  Slowly perfused
+  Cardiolipin_mu <- 15  * CV_cl
+  Cardiolipin_sk <- 15  * CV_cl
+  Cardiolipin_sp <- 15 * CV_cl
+  Cardiolipin_re <- 15* CV_cl
   
-  Cardiolipin_br <- 30 #umol/L Rapidly perfused
-  Cardiolipin_lu <- 30 
+  Cardiolipin_br <- 30 * CV_cl #umol/L Rapidly perfused
+  Cardiolipin_lu <- 30 * CV_cl
+  Cardiolipin_pa <- 30 * CV_cl
   
-  {
-    #mtDNA concentration calcalation (umol/L)
-    #Human Cell amount per organ
-    # br_cell <- 3 * 10^11 
-    # lu_cell <- 2.9 * 10^11 
-    # li_cell <- 3 * 10^11 
-    # ki_cell <- 10^10
-    # bo_cell <- 10^9
-    # he_cell <- 6 * 10^9
-    # mu_cell <- 1.5 * 10^10
-    # pa_cell <- 1.5 * 10^9
-    # 
-    # vol_cell_br <- (Vbr*8/br_cell)
-    # vol_cell_lu <- (Vlu/lu_cell) * 10^12 # [uM^3 or nL]
-    # vol_cell_li <- 3000 #[uM^3]
-    # vol_cell_gu <- 1400 #[uM^3]
-    # vol_cell_ki <- (Vki/ki_cell) * 10^12 # [uM^3 or nL]
-    # vol_cell_bo <- 4000 #[uM^3]
-    # vol_cell_he <- 15000 #[uM^3]
-    # vol_cell_mu <- (Vmu/mu_cell) * 10^12 # [uM^3 or nL]
-    # vol_cell_pa <- 1000 #[uM^3]
-    # vol_cell_ad <- 600000 #[uM^3]
-    # 
-    #mtdna/nDNA ratio according to [Regionalized Pathology Correlates with Augmentation of mtDNA Copy Numbers in a Patient with Myoclonic Epilepsy with Ragged-Red Fibers (MERRF-Syndrome)]
-    #ratio_lung <- 34
-    #ratio_liver <- 470
-    #ratio_skin <- 75
-    #ratio_adipose <- 75
-    #ratio_brain <- 191
-    #ratio_kidney <- 390
-    #ratio_heart <- 380
-    
-    
-    
-    # cell_array <- c(br_cell, lu_cell, li_cell, ki_cell, bo_cell, he_cell, mu_cell, pa_cell)
-    
-    # Assumption
-    # gu_cell <- mean(cell_array)
-    # ad_cell <- mean(cell_array)
-    # sk_cell <- mean(cell_array)
-    # sp_cell <- mean(cell_array)
-    # re_cell <- mean(cell_array)
-    # 
-    #mtDNA content [ug per kg organ] [Veltri et al 1990]
-    #li_cell <- 52/1000
-    #ki_cell <- 47/1000
-    #he_cell <- 36/1000
-    #br_cell <- 23/1000
-    
-    
-    #mtDNA copy numbers according to [Tissue-specific mtDNA abundance from exome data and its correlation with mitochondrial transcription, mass and respiratory activity]
-    # cn_li <- 2112
-    # cn_he <- 6216
-    # cn_ki <- 1162
-    # cn_mu <- 3230
-    # cn_br <- 1892
-    # cn_lu <- 250
-    # 
-    # cn_array <- c(cn_li, cn_he, cn_ki, cn_mu, cn_br, cn_lu)
-    # 
-    # Assumption
-    # cn_bo <- mean(cn_array)
-    # cn_gu <- mean(cn_array)
-    # cn_ad <- mean(cn_array)
-    # cn_sk <- mean(cn_array)
-    # cn_sp <- mean(cn_array)
-    # cn_re <- mean(cn_array)
-    # 
-    
-    #Copy number multiplied by base pair lenght. Multiply by BP molecular weight, divide by mol to get
-    #number of bps. 
-     
-    
-    # mtDNA_li <- (cn_li * 16500) * (650 / (6.022 * 10^23)) * li_cell / 8 * 1000000 / 650 / Vli
-    
-    #ug
-    
-    
-    
-    
-    
-    #  1 ng of mtDNA corresponds to approximately 1.52 x 10^-9 μmol, assuming a molecular weight of 6.6 x 10^5 g/mol
-    
-    
-    
-    # mtDNA_li <- (li_cell * (cn_li * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vli
-    # mtDNA_he <- (he_cell * (cn_he * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vhe  
-    # mtDNA_ki <- (ki_cell * (cn_ki * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vki  
-    # mtDNA_bo <- (bo_cell * (cn_bo * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vbo
-    # mtDNA_gu <- (gu_cell * (cn_gu * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vgu 
-    # 
-    # mtDNA_mu <- (mu_cell * (cn_mu * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vmu
-    # mtDNA_ad <- (ad_cell * (cn_ad * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vad 
-    # mtDNA_sk <- (sk_cell * (cn_sk * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vsk 
-    # 
-    # mtDNA_br <- (br_cell * (cn_br * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vbr 
-    # mtDNA_lu <- (lu_cell * (cn_lu * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vlu 
-    # mtDNA_sp <- (sp_cell * (cn_sp * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vsp 
-    # mtDNA_re <- (re_cell * (cn_re * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vre
-  }
+
   #mtDNA----
+  #Adopted from human model
+  #mtDNA concentration calcalation (umol/L)
+  br_cell <- 3 * 10^11 
+  lu_cell <- 2.9 * 10^11 
+  li_cell <- 3 * 10^11 
+  ki_cell <- 10^10
+  bo_cell <- 10^9
+  he_cell <- 6 * 10^9
+  mu_cell <- 1.5 * 10^10
+  pa_cell <- 1.5 * 10^9
+  
+  mtDNA_cellarray <- c(br_cell,lu_cell,li_cell,ki_cell,bo_cell,he_cell,mu_cell,pa_cell)
+  
+                       
+  # Assumption
+  gu_cell <- mean(mtDNA_cellarray)
+  ad_cell <- mean(mtDNA_cellarray)
+  sk_cell <- mean(mtDNA_cellarray)
+  sp_cell <- mean(mtDNA_cellarray)
+  re_cell <- mean(mtDNA_cellarray)
+  
+  cn_li <- 2112
+  cn_he <- 6216
+  cn_ki <- 1162
+  cn_mu <- 3230
+  cn_br <- 1892
+  cn_lu <- 250
+  
+  cn_array <- c(cn_li,cn_he,cn_ki,cn_mu,cn_br,cn_lu)
+  
+  # Assumption
+  cn_bo <- mean(cn_array)
+  cn_gu <- mean(cn_array)
+  cn_ad <- mean(cn_array)
+  cn_sk <- mean(cn_array)
+  cn_pa <- mean(cn_array)
+  cn_sp <- mean(cn_array)
+  cn_re <- mean(cn_array)
+  
+  #  1 ng of mtDNA corresponds to approximately 1.52 x 10^-9 μmol, assuming a molecular weight of 6.6 x 10^5 g/mol
+  mtDNA_li <- (li_cell * (cn_li * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vli
+  mtDNA_he <- (he_cell * (cn_he * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vhe  
+  mtDNA_ki <- (ki_cell * (cn_ki * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vki  
+  mtDNA_bo <- (bo_cell * (cn_bo * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vbo
+  mtDNA_gu <- (gu_cell * (cn_gu * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vgu 
+  
+  mtDNA_mu <- (mu_cell * (cn_mu * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vmu
+  mtDNA_ad <- (ad_cell * (cn_ad * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vad 
+  mtDNA_sk <- (sk_cell * (cn_sk * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vsk 
+  
+  mtDNA_br <- (br_cell * (cn_br * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vbr 
+  mtDNA_lu <- (lu_cell * (cn_lu * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vlu 
+  mtDNA_sp <- (sp_cell * (cn_sp * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vsp
+  mtDNA_pa <- (pa_cell * (cn_pa * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vpa 
+  mtDNA_re <- (re_cell * (cn_re * 660 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vre 
+  
+  
+  
   #based on assumption that 1% of total DNA is mtDNA
-    mtDNA_li <- 0.1 * DNA_li
-    mtDNA_he <- 0.1 * DNA_he  
-    mtDNA_ki <- 0.1 * DNA_ki 
-    mtDNA_bo <- 0.1 * DNA_bo 
-    mtDNA_gu <- 0.1 * DNA_gu 
-    
-    mtDNA_mu <- 0.1 * DNA_mu 
-    mtDNA_ad <- 0.1 * DNA_ad 
-    mtDNA_sk <- 0.1 * DNA_sk 
-    
-    mtDNA_br <- 0.1 * DNA_br 
-    mtDNA_lu <- 0.1 * DNA_lu 
-    mtDNA_sp <- 0.1 * DNA_sp 
-    mtDNA_re <- 0.1 * DNA_re 
+    # mtDNA_li <- 0.01 * DNA_li * CV_mtDNA
+    # mtDNA_he <- 0.01 * DNA_he * CV_mtDNA  
+    # mtDNA_ki <- 0.01 * DNA_ki * CV_mtDNA 
+    # mtDNA_bo <- 0.01 * DNA_bo * CV_mtDNA 
+    # mtDNA_gu <- 0.01 * DNA_gu  * CV_mtDNA
+    # 
+    # mtDNA_mu <- 0.01 * DNA_mu  * CV_mtDNA
+    # mtDNA_ad <- 0.01 * DNA_ad  * CV_mtDNA
+    # mtDNA_sk <- 0.01 * DNA_sk  * CV_mtDNA
+    # 
+    # mtDNA_br <- 0.01 * DNA_br  * CV_mtDNA
+    # mtDNA_lu <- 0.01 * DNA_lu  * CV_mtDNA
+    # mtDNA_sp <- 0.01 * DNA_sp  * CV_mtDNA
+    # mtDNA_re <- 0.01 * DNA_re  * CV_mtDNA
     
 #DNA/mtDNA/Cardiolipin specific for heart ----
   
-  DNA_other <- 0.05 * DNA_he
-  DNA_myo <- 0.95 * DNA_he
+  DNA_other <- (0.05 * DNA_he)
+  DNA_myo <- (0.95 * DNA_he)
   
-  mtDNA_other <- 0.05 * mtDNA_he
-  mtDNA_myo <- 0.95 * mtDNA_he
+  mtDNA_other <- (0.05 * mtDNA_he)
+  mtDNA_myo <- (0.95 * mtDNA_he)
   
-  Cardiolipin_other <- 0.05 * Cardiolipin_he
-  Cardiolipin_myo <- 0.95 * Cardiolipin_he
+  Cardiolipin_other <- (0.05 * Cardiolipin_he)
+  Cardiolipin_myo <- (0.95 * Cardiolipin_he)
   
 #Kd values ----
   
-  Kd_DNA <- 3.23 # 3.23 umol/L = 0.00000323 mol/L = 0.00323 mM = 3.23 x 10^-6 M = 3230 nmol/L
-  Koff_DNA <- 3 #509.4 min-1 = 30564 h-1 
+  #manual optimization
+  CV_Kd_DNA <- 1
+  CV_Koff_DNA <- 1
+  CV_Kd_mtDNA <- 1
+  CV_Koff_mtDNA <- 1
+  CV_Kd_cl <- 1
+  CV_Koff_cl <- 1
+  
+  Kd_DNA <- 3.23 * CV_Kd_DNA # 3.23 umol/L = 0.00000323 mol/L = 0.00323 mM = 3.23 x 10^-6 M = 3230 nmol/L
+  #Kd_DNA <- 0.2 * CV_Kd_DNA #Gustafson 2002: 200 nM = 0.2 uM.
+  
+  Koff_DNA <- 30564 * CV_Koff_DNA #509.4 min-1 = 30564 h-1 
   Kon_DNA <- Koff_DNA / Kd_DNA 
   
-  Kd_mtDNA <- 1 # 100nM to Molar (assume)
-  Koff_mtDNA <- 3 #509.4 min-1 = 30564 h-1
+  Kd_mtDNA <- 1 * CV_Kd_mtDNA # 100nM to Molar (assume)
+  Koff_mtDNA <- 30564 *CV_Koff_mtDNA #509.4 min-1 = 30564 h-1
   Kon_mtDNA <- Koff_mtDNA / Kd_mtDNA
   
-  Kd_cardiolipin <- 4 # 400nM to Molar (assume)
-  Koff_cardiolipin <- 3 #509.4 min-1 = 30564 h-1
+  Kd_cardiolipin <- 4 * CV_Kd_cl # 400nM to Molar (assume)
+  Koff_cardiolipin <- 30564 *CV_Koff_cl #509.4 min-1 = 30564 h-1
   Kon_cardiolipin <- Koff_cardiolipin / Kd_cardiolipin
   
   kon1 <- Kon_DNA
@@ -373,7 +375,8 @@ rm(list=ls(all=TRUE))
   koff3 <- Koff_mtDNA
   
 #PER：cytoplasmic membrane permeability coefficient----
-  PER <- 0.0756  # cm/h （huahe Unpublished）
+  PER <- 0.0756/1000 # cm/h （huahe Unpublished）
+  PER <- PER * CV_PER  #optimized for dogs
   
 #Heart weight----
   #according to University of Minnesota: vhlab.umn.edu/atlas/comparative-anatomy-tutorial/external-anatomy.shtml
@@ -462,6 +465,7 @@ rm(list=ls(all=TRUE))
   fuec_mu <- 1 
   fuec_sk <- 1 
   fuec_sp <- 1 
+  fuec_pa <- 1
   fuec_gu <- 1 
   fuec_ad <- 1 
   fuec_re <- 1
@@ -631,19 +635,23 @@ rm(list=ls(all=TRUE))
     Kpu_re <- EW_re + (X_iw / X_ew) * IW_re + ( P * NL_re + (0.3 * P + 0.7) * NP_re) / EW_re + KaAP * AP_re * Y_iw / X_ew
     Kpu_rbc <- EW_rbc + (X_iw / X_ew) * IW_rbc + ( P * NL_rbc + (0.3 * P + 0.7) * NP_rbc) / EW_rbc + KaAP * AP_rbc * Y_iw / X_ew
     
-    Kpad <- Kpu_ad * fup
-    Kpbo <- Kpu_bo * fup
-    Kpbr <- Kpu_br * fup
-    Kpgu <- Kpu_gu * fup
-    Kphe <- Kpu_he * fup
-    Kpki <- Kpu_ki * fup
-    Kpli <- Kpu_li * fup
-    Kplu <- Kpu_lu * fup
-    Kpmu <- Kpu_mu * fup
-    Kpre <- Kpu_re * fup
-    Kpsk <- Kpu_sk * fup
-    Kpsp <- Kpu_sp * fup
-    Kppl <- Kpu_pl * fup
+    #Kp values ----
+    #Kp scalar
+    Kp_scalar <- 15
+    Kpad <- Kpu_ad * fup * Kp_scalar
+    Kpbo <- Kpu_bo * fup * Kp_scalar
+    Kpbr <- Kpu_br * fup * Kp_scalar
+    Kpgu <- Kpu_gu * fup * Kp_scalar
+    Kphe <- Kpu_he * fup * Kp_scalar
+    Kpki <- Kpu_ki * fup * Kp_scalar
+    Kpli <- Kpu_li * fup * Kp_scalar
+    Kplu <- Kpu_lu * fup * Kp_scalar
+    Kpmu <- Kpu_mu * fup * Kp_scalar
+    Kpre <- Kpu_re * fup * Kp_scalar
+    Kpsk <- Kpu_sk * fup * Kp_scalar
+    Kpsp <- Kpu_sp * fup * Kp_scalar
+    Kppa <- Kpu_pa * fup * Kp_scalar
+    Kppl <- Kpu_pl * fup * Kp_scalar
     
     # tissue to plasma albumin ratio according to PK-sim 
     ad_ratio <- 0.05
@@ -678,7 +686,7 @@ rm(list=ls(all=TRUE))
     Kpec_re <-  (1- re_ratio) * fup + re_ratio
   }
   
-  # CL clearance [Leandro 2019] -------------------------------------------------------
+  # Intrinisc CL -------------------------------------------------------
   #CL_renal <- 1.06 * weight * 60 / 1000 #[L/ h] renal clearance
   #CL_hepatic <- 29.97 #[L/ h] hepatic clearance
   CLint_heart <- 0 #[L/ h] heart clearance CYP3A4 was not detected in heart tissue
@@ -698,6 +706,7 @@ rm(list=ls(all=TRUE))
     DNA_ad = DNA_ad,
     DNA_sk = DNA_sk,
     DNA_sp = DNA_sp,
+    DNA_pa = DNA_pa,
     DNA_br = DNA_br,
     DNA_lu = DNA_lu, 
     DNA_bloodcell = DNA_bloodcell,
@@ -712,6 +721,7 @@ rm(list=ls(all=TRUE))
     mtDNA_ad = mtDNA_ad,
     mtDNA_sk = mtDNA_sk,
     mtDNA_sp = mtDNA_sp,
+    mtDNA_pa = mtDNA_pa,
     mtDNA_br = mtDNA_br,
     mtDNA_lu = mtDNA_lu, 
     mtDNA_re = mtDNA_re,
@@ -725,6 +735,7 @@ rm(list=ls(all=TRUE))
     Cardiolipin_ad = Cardiolipin_ad,
     Cardiolipin_sk = Cardiolipin_sk,
     Cardiolipin_sp = Cardiolipin_sp,
+    Cardiolipin_pa = Cardiolipin_pa,
     Cardiolipin_br = Cardiolipin_br,
     Cardiolipin_lu = Cardiolipin_lu, 
     Cardiolipin_re = Cardiolipin_re,
@@ -756,6 +767,7 @@ rm(list=ls(all=TRUE))
     Cmu_ec = 0,
     Csk_ec = 0,
     Csp_ec = 0,
+    Cpa_ec = 0,
     Cre_ec = 0,
    
     Cmyo_ict = 0,
@@ -770,6 +782,7 @@ rm(list=ls(all=TRUE))
     Cmu_ict = 0,
     Csk_ict = 0,
     Csp_ict = 0,
+    Cpa_ict = 0,
     Cre_ict = 0,
     Cbloodcell = 0,
   
@@ -860,6 +873,13 @@ rm(list=ls(all=TRUE))
     Csp_E3R = 0,
     Csp_E3 = mtDNA_sp,
     
+    Cpa_E1R = 0,
+    Cpa_E1 = DNA_pa,
+    Cpa_E2R = 0,
+    Cpa_E2 = Cardiolipin_pa,
+    Cpa_E3R = 0,
+    Cpa_E3 = mtDNA_pa,
+    
     Cre_E1R = 0,
     Cre_E1 = DNA_re,
     Cre_E2R = 0,
@@ -871,7 +891,8 @@ rm(list=ls(all=TRUE))
   ###Differential equations - umol/h/L -------------------------------------------------------
   PBPKModel = function(times, state, parameters) {
     with(as.list(c(state, parameters)), {
-      inf <- ifelse(times <= t, inf, 0)
+      #inf <- ifelse(times <= t, inf, 0)
+      inf <- infusion_rate_at_time(times, infusion_schedule, inf_time, inf)
       
       #DOX concentrations:
       #Cliverfree <-  Cli_ec * (fup / BP)  #liver free concentration
@@ -882,39 +903,41 @@ rm(list=ls(all=TRUE))
       
       ## rates of changes
       dINFUSION <- -inf
-      dCve <- (inf + Qad * (Cad_ec / Kpad * BP) - (CL_sys * Cplasmavenous) + Qbo * (Cbo_ec / Kpbo * BP) + Qbr * (Cbr_ec / Kpbr * BP) + Qki* (Cki_ec / Kpki * BP) + Qli * (Cli_ec / Kpli * BP) + Qmu* (Cmu_ec / Kpmu * BP) + Qsk* (Csk_ec / Kpsk * BP)+ Qhe * (Che_ec / Kphe * BP) + Qre * (Cre_ec / Kpre * BP) - Qlu * Cve - PER * SA_bloodcell * 0.001 * (Cve* funionized_ec - (Cbloodcell/Kpp)* funionized_ic))/ Vve #venous blood
+      dCve <- ((inf + Qad * (Cad_ec / Kpad * BP) + Qbo * (Cbo_ec / Kpbo * BP) + Qbr * (Cbr_ec / Kpbr * BP) + Qki* (Cki_ec / Kpki * BP) + Qli * (Cli_ec / Kpli * BP) + Qmu* (Cmu_ec / Kpmu * BP) + Qsk* (Csk_ec / Kpsk * BP)+ Qhe * (Che_ec / Kphe * BP) + Qre * (Cre_ec / Kpre * BP) - Qlu * Cve - PER * SA_bloodcell * 0.001 * (Cve* funionized_ec - (Cbloodcell/Kpp)* funionized_ic))/ Vve) - ((CL_sys * Cplasmavenous)/ Vve) #venous blood
       dCar <- (Qlu * (Clu_ec / Kplu * BP) - Qlu * Car - PER * SA_bloodcell * 0.001 * (Car* funionized_ec - (Cbloodcell/Kpp)* funionized_ic))/ Var 	#arterial blood
       
       # Extracellular sub-compartment
-      dChe_ec <- (Qhe * (Car - (Che_ec/Kphe) * BP) -(0.001 * PER * SA_myo * (Che_ec * fuec_he * funionized_ec - Cmyo_ict/(Kpec_he * Kpp) * funionized_ic)) - (0.001 * 0.0000756 *  SA_other * (Che_ec * fu_ec * funionized_ec - Cother_ict /(Kpec_he * Kpp) * funionized_ic)) ) / Vhe_ec
-      dCad_ec <- (Qad * (Car - (Cad_ec/Kpad) * BP) - (0.001 * PER * SA_ad * (Cad_ec * fuec_ad * funionized_ec - Cad_ict/(Kpec_ad * Kpp) * funionized_ic)))/ Vad_ec 
-      dCbo_ec <- (Qbo * (Car - (Cbo_ec/Kpbo) * BP) - (0.001 * PER * SA_bo * (Cbo_ec * fuec_bo * funionized_ec - Cbo_ict/(Kpec_bo * Kpp) * funionized_ic)))/ Vbo_ec
-      dCbr_ec <- (Qbr * (Car - (Cbr_ec/(Kpbr/10000)) * BP) - (0.001 * PER * SA_br * (Cbr_ec * fuec_br * funionized_ec - Cbr_ict/(Kpec_br * Kpp) * funionized_ic)))/ Vbr_ec
-      dCgu_ec <- (Qgu * (Car - (Cgu_ec/Kpgu) * BP) - (0.001 * PER * SA_gu * (Cgu_ec * fuec_gu * funionized_ec - Cgu_ict/(Kpec_gu * Kpp) * funionized_ic)))/ Vgu_ec
-      dCki_ec <- (Qki * (Car - (Cki_ec/Kpki) * BP) - (0.001 * PER * SA_ki * (Cki_ec * fuec_ki * funionized_ec - Cki_ict/(Kpec_ki * Kpp) * funionized_ic)))/ Vki_ec
-      dCli_ec <- ((Qha * Car + Qgu * (Cgu_ec / Kpgu * BP) + Qsp * (Csp_ec / Kpsp * BP) - Qli * (Cli_ec / Kpli * BP) ) - (0.001 * PER * SA_li * (Cli_ec * fuec_li * funionized_ec - Cli_ict/(Kpec_li * Kpp) * funionized_ic)))/ Vli_ec
-      dClu_ec <- ((Qlu * Cve - Qlu * (Clu_ec / Kplu * BP)) - (0.001 * PER * SA_lu * (Clu_ec * fuec_lu * funionized_ec - Clu_ict/(Kpec_lu * Kpp) * funionized_ic)))/ Vlu_ec
-      dCmu_ec <- (Qmu * (Car - (Cmu_ec/Kpmu) * BP) - (0.001 * PER * SA_mu * (Cmu_ec * fuec_mu * funionized_ec - Cmu_ict/(Kpec_mu * Kpp) * funionized_ic)))/ Vmu_ec
-      dCsk_ec <- (Qsk * (Car - (Csk_ec/Kpsk) * BP) - (0.001 * PER * SA_sk * (Csk_ec * fuec_sk * funionized_ec - Csk_ict/(Kpec_sk * Kpp) * funionized_ic)))/ Vsk_ec
-      dCsp_ec <- (Qsp * (Car - (Csp_ec/Kpsp) * BP) - (0.001 * PER * SA_sp * (Csp_ec * fuec_sp * funionized_ec - Csp_ict/(Kpec_sp * Kpp) * funionized_ic)))/ Vsp_ec
-      dCre_ec <- (Qre * (Car - (Cre_ec/Kpre) * BP) - (0.001 * PER * SA_re * (Cre_ec * fuec_re * funionized_ec - Cre_ict/(Kpec_re * Kpp) * funionized_ic)))/ Vre_ec
+      dChe_ec <- (Qhe * (Car - (Che_ec/Kphe) * BP) -(PER * SA_myo * (Che_ec * fuec_he * funionized_ec - Cmyo_ict/(Kpec_he * Kpp) * funionized_ic)) - (0.001 * 0.0000756 *  SA_other * (Che_ec * fu_ec * funionized_ec - Cother_ict /(Kpec_he * Kpp) * funionized_ic)) ) / Vhe_ec
+      dCad_ec <- (Qad * (Car - (Cad_ec/Kpad) * BP) - (PER * SA_ad * (Cad_ec * fuec_ad * funionized_ec - Cad_ict/(Kpec_ad * Kpp) * funionized_ic)))/ Vad_ec 
+      dCbo_ec <- (Qbo * (Car - (Cbo_ec/Kpbo) * BP) - (PER * SA_bo * (Cbo_ec * fuec_bo * funionized_ec - Cbo_ict/(Kpec_bo * Kpp) * funionized_ic)))/ Vbo_ec
+      dCbr_ec <- (Qbr * (Car - (Cbr_ec/(Kpbr/10000)) * BP) - (PER * SA_br * (Cbr_ec * fuec_br * funionized_ec - Cbr_ict/(Kpec_br * Kpp) * funionized_ic)))/ Vbr_ec
+      dCgu_ec <- (Qgu * (Car - (Cgu_ec/Kpgu) * BP) - (PER * SA_gu * (Cgu_ec * fuec_gu * funionized_ec - Cgu_ict/(Kpec_gu * Kpp) * funionized_ic)))/ Vgu_ec
+      dCki_ec <- (Qki * (Car - (Cki_ec/Kpki) * BP) - (PER * SA_ki * (Cki_ec * fuec_ki * funionized_ec - Cki_ict/(Kpec_ki * Kpp) * funionized_ic)))/ Vki_ec
+      dCli_ec <- ((Qha * Car + Qgu * (Cgu_ec / Kpgu * BP) + Qsp * (Csp_ec / Kpsp * BP) - Qli * (Cli_ec / Kpli * BP) ) - (PER * SA_li * (Cli_ec * fuec_li * funionized_ec - Cli_ict/(Kpec_li * Kpp) * funionized_ic)))/ Vli_ec
+      dClu_ec <- ((Qlu * Cve - Qlu * (Clu_ec / Kplu * BP)) - (PER * SA_lu * (Clu_ec * fuec_lu * funionized_ec - Clu_ict/(Kpec_lu * Kpp) * funionized_ic)))/ Vlu_ec
+      dCmu_ec <- (Qmu * (Car - (Cmu_ec/Kpmu) * BP) - (PER * SA_mu * (Cmu_ec * fuec_mu * funionized_ec - Cmu_ict/(Kpec_mu * Kpp) * funionized_ic)))/ Vmu_ec
+      dCsk_ec <- (Qsk * (Car - (Csk_ec/Kpsk) * BP) - (PER * SA_sk * (Csk_ec * fuec_sk * funionized_ec - Csk_ict/(Kpec_sk * Kpp) * funionized_ic)))/ Vsk_ec
+      dCsp_ec <- (Qsp * (Car - (Csp_ec/Kpsp) * BP) - (PER * SA_sp * (Csp_ec * fuec_sp * funionized_ec - Csp_ict/(Kpec_sp * Kpp) * funionized_ic)))/ Vsp_ec
+      dCpa_ec <- (Qpa * (Car - (Cpa_ec/Kppa) * BP) - (PER * SA_pa * (Cpa_ec * fuec_pa * funionized_ec - Cpa_ict/(Kpec_pa * Kpp) * funionized_ic)))/ Vpa_ec
+      dCre_ec <- (Qre * (Car - (Cre_ec/Kpre) * BP) - (PER * SA_re * (Cre_ec * fuec_re * funionized_ec - Cre_ict/(Kpec_re * Kpp) * funionized_ic)))/ Vre_ec
       
       # Subcompartments intracellular total concentration
-      dCmyo_ict <- (0.001 * PER * SA_myo * ((Che_ec * fu_ec * funionized_ec - Cmyo_ict/(Kpec_he * Kpp) * funionized_ic ) - (Cmyo_ict * fu_heart * CLint_heart * (Vmyo_ic/Vhe))) / Vmyo_ic) - (kon1 * Cmyo_ict * Cmyo_E1 - koff1 * Cmyo_E1R) - (kon2 * Cmyo_ict * Cmyo_E2 - koff2 * Cmyo_E2R ) - (kon3 * Cmyo_ict * Cmyo_E3 - koff3 * Cmyo_E3R )
+      dCmyo_ict <- (PER * SA_myo * ((Che_ec * fu_ec * funionized_ec - Cmyo_ict/(Kpec_he * Kpp) * funionized_ic ) - (Cmyo_ict * fu_heart * CLint_heart * (Vmyo_ic/Vhe))) / Vmyo_ic) - (kon1 * Cmyo_ict * Cmyo_E1 - koff1 * Cmyo_E1R) - (kon2 * Cmyo_ict * Cmyo_E2 - koff2 * Cmyo_E2R ) - (kon3 * Cmyo_ict * Cmyo_E3 - koff3 * Cmyo_E3R )
       dCother_ict <- (0.001 * 0.0000756 * SA_other * ((Che_ec * fu_ec * funionized_ec - Cother_ict/(Kpec_he * Kpp) * funionized_ic) - (Cother_ict * fu_heart * CLint_heart * (Vother_ic/Vhe)))/Vother_ic) - (kon1 * Cother_ict * Cother_E1 - koff1 * Cother_E1R) - (kon2 * Cother_ict * Cother_E2 - koff2 * Cother_E2R ) - (kon3 * Cother_ict * Cother_E3 - koff3 * Cother_E3R )
-      dCad_ict <- (0.001 * PER * SA_ad * ((Cad_ec * fuec_ad * funionized_ec - Cad_ict/(Kpec_ad * Kpp) * funionized_ic)) / Vad_ic) - (kon1 * Cad_ict * Cad_E1 - koff1 * Cad_E1R) - (kon2 * Cad_ict * Cad_E2 - koff2 * Cad_E2R) - (kon3 * Cad_ict * Cad_E3 - koff3 * Cad_E3R) 
-      dCbo_ict <- (0.001 * PER * SA_bo * ((Cbo_ec * fuec_bo * funionized_ec - Cbo_ict/(Kpec_bo * Kpp) * funionized_ic)) / Vbo_ic) - (kon1 * Cbo_ict * Cbo_E1 - koff1 * Cbo_E1R) - (kon2 * Cbo_ict * Cbo_E2 - koff2 * Cbo_E2R) - (kon3 * Cbo_ict * Cbo_E3 - koff3 * Cbo_E3R) 
-      dCbr_ict <- (0.001 * (PER/10000) * SA_br * ((Cbr_ec * fuec_br * funionized_ec - Cbr_ict/(Kpec_br * Kpp) * funionized_ic)) / Vbr_ic) - (kon1 * Cbr_ict * Cbr_E1 - koff1 * Cbr_E1R) - (kon2 * Cbr_ict * Cbr_E2 - koff2 * Cbr_E2R) - (kon3 * Cbr_ict * Cbr_E3 - koff3 * Cbr_E3R) 
-      dCgu_ict <- (0.001 * PER * SA_gu * ((Cgu_ec * fuec_gu * funionized_ec - Cgu_ict/(Kpec_gu * Kpp) * funionized_ic)) / Vgu_ic) - (kon1 * Cgu_ict * Cgu_E1 - koff1 * Cgu_E1R) - (kon2 * Cgu_ict * Cgu_E2 - koff2 * Cgu_E2R) - (kon3 * Cgu_ict * Cgu_E3 - koff3 * Cgu_E3R) 
-      dCki_ict <- (0.001 * PER * SA_ki * ((Cki_ec * fuec_ki * funionized_ec - Cki_ict/(Kpec_ki * Kpp) * funionized_ic)) / Vki_ic) - (kon1 * Cki_ict * Cki_E1 - koff1 * Cki_E1R) - (kon2 * Cki_ict * Cki_E2 - koff2 * Cki_E2R) - (kon3 * Cki_ict * Cki_E3 - koff3 * Cki_E3R) 
-      dCli_ict <- (0.001 * PER * SA_li * ((Cli_ec * fuec_li * funionized_ec - Cli_ict/(Kpec_li * Kpp) * funionized_ic)) / Vli_ic) - (kon1 * Cli_ict * Cli_E1 - koff1 * Cli_E1R) - (kon2 * Cli_ict * Cli_E2 - koff2 * Cli_E2R) - (kon3 * Cli_ict * Cli_E3 - koff3 * Cli_E3R) 
-      dClu_ict <- (0.001 * PER * SA_lu * ((Clu_ec * fuec_lu * funionized_ec - Clu_ict/(Kpec_lu * Kpp) * funionized_ic)) / Vlu_ic) - (kon1 * Clu_ict * Clu_E1 - koff1 * Clu_E1R) - (kon2 * Clu_ict * Clu_E2 - koff2 * Clu_E2R) - (kon3 * Clu_ict * Clu_E3 - koff3 * Clu_E3R) 
-      dCmu_ict <- (0.001 * PER * SA_mu * ((Cmu_ec * fuec_mu * funionized_ec - Cmu_ict/(Kpec_mu * Kpp) * funionized_ic)) / Vmu_ic) - (kon1 * Cmu_ict * Cmu_E1 - koff1 * Cmu_E1R) - (kon2 * Cmu_ict * Cmu_E2 - koff2 * Cmu_E2R) - (kon3 * Cmu_ict * Cmu_E3 - koff3 * Cmu_E3R) 
-      dCsk_ict <- (0.001 * PER * SA_sk * ((Csk_ec * fuec_sk * funionized_ec - Csk_ict/(Kpec_sk * Kpp) * funionized_ic)) / Vsk_ic) - (kon1 * Csk_ict * Csk_E1 - koff1 * Csk_E1R) - (kon2 * Csk_ict * Csk_E2 - koff2 * Csk_E2R) - (kon3 * Csk_ict * Csk_E3 - koff3 * Csk_E3R) 
-      dCsp_ict <- (0.001 * PER * SA_sp * ((Csp_ec * fuec_sp * funionized_ec - Csp_ict/(Kpec_sp * Kpp) * funionized_ic)) / Vsp_ic) - (kon1 * Csp_ict * Csp_E1 - koff1 * Csp_E1R) - (kon2 * Csp_ict * Csp_E2 - koff2 * Csp_E2R) - (kon3 * Csp_ict * Csp_E3 - koff3 * Csp_E3R) 
-      dCre_ict <- (0.001 * PER * SA_re * ((Cre_ec * fuec_re * funionized_ec - Cre_ict/(Kpec_re * Kpp) * funionized_ic)) / Vre_ic) - (kon1 * Cre_ict * Cre_E1 - koff1 * Cre_E1R) - (kon2 * Cre_ict * Cre_E2 - koff2 * Cre_E2R) - (kon3 * Cre_ict * Cre_E3 - koff3 * Cre_E3R) 
+      dCad_ict <- (PER * SA_ad * ((Cad_ec * fuec_ad * funionized_ec - Cad_ict/(Kpec_ad * Kpp) * funionized_ic)) / Vad_ic) - (kon1 * Cad_ict * Cad_E1 - koff1 * Cad_E1R) - (kon2 * Cad_ict * Cad_E2 - koff2 * Cad_E2R) - (kon3 * Cad_ict * Cad_E3 - koff3 * Cad_E3R) 
+      dCbo_ict <- (PER * SA_bo * ((Cbo_ec * fuec_bo * funionized_ec - Cbo_ict/(Kpec_bo * Kpp) * funionized_ic)) / Vbo_ic) - (kon1 * Cbo_ict * Cbo_E1 - koff1 * Cbo_E1R) - (kon2 * Cbo_ict * Cbo_E2 - koff2 * Cbo_E2R) - (kon3 * Cbo_ict * Cbo_E3 - koff3 * Cbo_E3R) 
+      dCbr_ict <- ((PER/10000) * SA_br * ((Cbr_ec * fuec_br * funionized_ec - Cbr_ict/(Kpec_br * Kpp) * funionized_ic)) / Vbr_ic) - (kon1 * Cbr_ict * Cbr_E1 - koff1 * Cbr_E1R) - (kon2 * Cbr_ict * Cbr_E2 - koff2 * Cbr_E2R) - (kon3 * Cbr_ict * Cbr_E3 - koff3 * Cbr_E3R) 
+      dCgu_ict <- (PER * SA_gu * ((Cgu_ec * fuec_gu * funionized_ec - Cgu_ict/(Kpec_gu * Kpp) * funionized_ic)) / Vgu_ic) - (kon1 * Cgu_ict * Cgu_E1 - koff1 * Cgu_E1R) - (kon2 * Cgu_ict * Cgu_E2 - koff2 * Cgu_E2R) - (kon3 * Cgu_ict * Cgu_E3 - koff3 * Cgu_E3R) 
+      dCki_ict <- (PER * SA_ki * ((Cki_ec * fuec_ki * funionized_ec - Cki_ict/(Kpec_ki * Kpp) * funionized_ic)) / Vki_ic) - (kon1 * Cki_ict * Cki_E1 - koff1 * Cki_E1R) - (kon2 * Cki_ict * Cki_E2 - koff2 * Cki_E2R) - (kon3 * Cki_ict * Cki_E3 - koff3 * Cki_E3R) 
+      dCli_ict <- (PER * SA_li * ((Cli_ec * fuec_li * funionized_ec - Cli_ict/(Kpec_li * Kpp) * funionized_ic)) / Vli_ic) - (kon1 * Cli_ict * Cli_E1 - koff1 * Cli_E1R) - (kon2 * Cli_ict * Cli_E2 - koff2 * Cli_E2R) - (kon3 * Cli_ict * Cli_E3 - koff3 * Cli_E3R) 
+      dClu_ict <- (PER * SA_lu * ((Clu_ec * fuec_lu * funionized_ec - Clu_ict/(Kpec_lu * Kpp) * funionized_ic)) / Vlu_ic) - (kon1 * Clu_ict * Clu_E1 - koff1 * Clu_E1R) - (kon2 * Clu_ict * Clu_E2 - koff2 * Clu_E2R) - (kon3 * Clu_ict * Clu_E3 - koff3 * Clu_E3R) 
+      dCmu_ict <- (PER * SA_mu * ((Cmu_ec * fuec_mu * funionized_ec - Cmu_ict/(Kpec_mu * Kpp) * funionized_ic)) / Vmu_ic) - (kon1 * Cmu_ict * Cmu_E1 - koff1 * Cmu_E1R) - (kon2 * Cmu_ict * Cmu_E2 - koff2 * Cmu_E2R) - (kon3 * Cmu_ict * Cmu_E3 - koff3 * Cmu_E3R) 
+      dCsk_ict <- (PER * SA_sk * ((Csk_ec * fuec_sk * funionized_ec - Csk_ict/(Kpec_sk * Kpp) * funionized_ic)) / Vsk_ic) - (kon1 * Csk_ict * Csk_E1 - koff1 * Csk_E1R) - (kon2 * Csk_ict * Csk_E2 - koff2 * Csk_E2R) - (kon3 * Csk_ict * Csk_E3 - koff3 * Csk_E3R) 
+      dCsp_ict <- (PER * SA_sp * ((Csp_ec * fuec_sp * funionized_ec - Csp_ict/(Kpec_sp * Kpp) * funionized_ic)) / Vsp_ic) - (kon1 * Csp_ict * Csp_E1 - koff1 * Csp_E1R) - (kon2 * Csp_ict * Csp_E2 - koff2 * Csp_E2R) - (kon3 * Csp_ict * Csp_E3 - koff3 * Csp_E3R) 
+      dCpa_ict <- (PER * SA_pa * ((Cpa_ec * fuec_pa * funionized_ec - Cpa_ict/(Kpec_pa * Kpp) * funionized_ic)) / Vpa_ic) - (kon1 * Cpa_ict * Cpa_E1 - koff1 * Cpa_E1R) - (kon2 * Cpa_ict * Cpa_E2 - koff2 * Cpa_E2R) - (kon3 * Cpa_ict * Cpa_E3 - koff3 * Cpa_E3R) 
+      dCre_ict <- (PER * SA_re * ((Cre_ec * fuec_re * funionized_ec - Cre_ict/(Kpec_re * Kpp) * funionized_ic)) / Vre_ic) - (kon1 * Cre_ict * Cre_E1 - koff1 * Cre_E1R) - (kon2 * Cre_ict * Cre_E2 - koff2 * Cre_E2R) - (kon3 * Cre_ict * Cre_E3 - koff3 * Cre_E3R) 
       
-      dCbloodcell <- (0.001 * PER * SA_bloodcell * (Cve * funionized_ec - (Cbloodcell/Kpp)* funionized_ic) + 0.001 * PER * SA_bloodcell * (Car* funionized_ec - (Cbloodcell/Kpp)* funionized_ic))/ Vrb - (kon1 * Cbloodcell * Cbloodcell_E1 - koff1 * Cbloodcell_E1R)
+      dCbloodcell <- (PER * SA_bloodcell * (Cve * funionized_ec - (Cbloodcell/Kpp)* funionized_ic) + PER * SA_bloodcell * (Car* funionized_ec - (Cbloodcell/Kpp)* funionized_ic))/ Vrb - (kon1 * Cbloodcell * Cbloodcell_E1 - koff1 * Cbloodcell_E1R)
       dCbloodcell_E1R <- kon1 * Cbloodcell * Cbloodcell_E1 - koff1 * Cbloodcell_E1R
       dCbloodcell_E1 <- -(kon1 * Cbloodcell * Cbloodcell_E1 - koff1 * Cbloodcell_E1R)      
       
@@ -1039,6 +1062,16 @@ rm(list=ls(all=TRUE))
       dCsp_E3R = kon3 * Csp_ict * Csp_E3 - koff3 * Csp_E3R 
       dCsp_E3 = - (kon3 * Csp_ict * Csp_E3 - koff3 * Csp_E3R) 
       
+      # Pancreas
+      dCpa_E1R = kon1 * Cpa_ict * Cpa_E1 - koff1 * Cpa_E1R
+      dCpa_E1 = - (kon1 * Cpa_ict * Cpa_E1 - koff1 * Cpa_E1R) 
+      
+      dCpa_E2R = kon2 * Cpa_ict * Cpa_E2 - koff2 * Cpa_E2R 
+      dCpa_E2 = - (kon2 * Cpa_ict * Cpa_E2 - koff2 * Cpa_E2R) 
+      
+      dCpa_E3R = kon3 * Cpa_ict * Cpa_E3 - koff3 * Cpa_E3R 
+      dCpa_E3 = - (kon3 * Cpa_ict * Cpa_E3 - koff3 * Cpa_E3R) 
+      
       # Rest
       dCre_E1R = kon1 * Cre_ict * Cre_E1 - koff1 * Cre_E1R
       dCre_E1 = - (kon1 * Cre_ict * Cre_E1 - koff1 * Cre_E1R) 
@@ -1065,6 +1098,7 @@ rm(list=ls(all=TRUE))
           dCmu_ec,
           dCsk_ec,
           dCsp_ec,
+          dCpa_ec,
           dCre_ec,
           
           dCmyo_ict,
@@ -1079,6 +1113,7 @@ rm(list=ls(all=TRUE))
           dCmu_ict,
           dCsk_ict,
           dCsp_ict,
+          dCpa_ict,
           dCre_ict,
           
           dCbloodcell,
@@ -1168,6 +1203,13 @@ rm(list=ls(all=TRUE))
           dCsp_E2,
           dCsp_E3R,
           dCsp_E3,
+         
+          dCpa_E1R,
+          dCpa_E1,
+          dCpa_E2R,
+          dCpa_E2,
+          dCpa_E3R,
+          dCpa_E3,
           
           dCre_E1R,
           dCre_E1,
@@ -1188,53 +1230,222 @@ out <-
   ode(y = state,
       times = times,
       func = PBPKModel,
-      parm = parameters,
-      hmax= 0.01,
-      rtol = 1e-8,
-      atol = 1e-8
+      parm = parameters
   )
 
-results <- data.frame(out)
+#Results----
+ results <- data.frame(out) #All
+ results2 <- data.frame(out) #Wilke 1991
+ results3 <- data.frame(out) #Ku 1997
+ results4 <- data.frame(out) #Gustafson 2002,Selting2006
+ results5 <- data.frame(out) #Hu 2007
+ results6 <- data.frame(out) #Timour 1988
 
-run_ggquickeda(data = results)
+ results_1hinf <- data.frame(out)
+ results_2hinf <- data.frame(out)
+ results_15mininf <- data.frame(out)
+  
+ #run_ggquickeda(data = results)
 
-write.xlsx(out, '~/Desktop/CL50.xlsx')
+#write.xlsx(out, '~/Desktop/CL50.xlsx')
 
+ 
+ #plots----
 plot(
   results$time,
   results$BLCELL,
   type = "l",
   col = "blue",
   xlab = "Time [h]",
-  ylab = "Blood cell Concentration [umol/L]"
-  #log = "y", # set y-axis to log scale
+  ylab = "Blood cell Concentration [umol/L]",
+  log = "y", # set y-axis to log scale
   #yticks = c(10000, 1000, 100, 10, 1, 0.1, 0.01, 0.001) # set y-axis tick marks
 ) 
 
-plot(
-  results$time,
-  results$PL,
-  type = "l",
-  col = "blue",
-  xlab = "Time [h]",
-  ylab = "Plasma Concentration [umol/L]",
-  log = "y", # set y-axis to log scale
-  yticks = c(10000, 1000, 100, 10, 1, 0.1, 0.01, 0.001) # set y-axis tick marks
-) 
+ #plasma plot ----
+ Plasma <- (results$PL) #All
+ Plasma2 <- (results2$PL) #Wilke 1991 30 mg/m2
+ Plasma3 <- (results3$PL) #Ku 1997 1 mg/kg
+ Plasma4 <- (results4$PL) #Gustafson 30 mg/m2 cancer pts, 20 min inf, Selting 2006
+ Plasma5 <- (results5$PL) #Hu 2007
+ Plasma6 <- (results6$PL) #Timour 1988
+ 
+ SummaryPlasma <- data.frame(
+   Timerun=(results$time),
+   Median=(Plasma),
+   Lower=(Plasma/2),
+   Upper=(Plasma*2))
+   #Order data
+   SummaryPlasma <- SummaryPlasma[order(SummaryPlasma$Timerun,SummaryPlasma$Median),]
+   
+   #plot
+ {plot(times,SummaryPlasma$Median,ylim=c(min(0.0001),max(10)),log='y',xlab="Time (h)",ylab="DOX Plasma Concentration (µM)", type="n", main="DOX Plasma Concentration")
+   lines(times,SummaryPlasma$Upper,col="darkgrey", type="l",lwd=2)
+   lines(times,SummaryPlasma$Lower,col="darkgrey", type="l",lwd=2)
+   polygon(c(times, rev(times)), c(SummaryPlasma$Upper, rev(SummaryPlasma$Lower)),
+           col = "grey90", lwd=2, border = NA)
+   #lines(times,SummaryPlasma$Uppermax,lty=3,col="black",lwd=1)
+   #lines(times,SummaryPlasma$Lowermin,lty=3,col="black",lwd=1)
+   lines(times,SummaryPlasma$Median,col="darkred",type="l",lwd=2)
+   #legend(4, 5, legend=c("Gustafson 2002","Selting 2006", "30 mg/m2 IV inf. 20 min")
+   #pch=c(16,16,NA),lty=c(NA,NA,1),col=c("#CC79A7","#009E73","darkred"), cex=c(1,1))
+ }
 
-#liver plot
+{#Hu 2007
+     points(c(0,
+            1.862068966,
+            4.034482759,
+            23.89655172,
+            48.10344828,
+            95.89655172), c(1.940179566,
+                            0.045342506,
+                            0.021803849,
+                            0.014414835,
+                            0.006714481,
+                            0.005547063), pch=16, col= "#E69F00")
+  } 
+ 
+ {#Wilke 1991.  Dose 30 mg/kg, healthy adult beagles
+   points(c(0.01300813,
+            0.240650407,
+            0.500813008,
+            0.73495935,
+            2.061788618,
+            3.752845528,
+            6.289430894), c(4.125245529,
+                            0.670638935,
+                            0.147577868,
+                            0.131922822,
+                            0.029357734,
+                            0.009565541,
+                            0.016022693), pch=16, col= "#0072B2")
+   
+ }
+
+{#Ku 1997  Dose 1 mg/kg, beagles
+  points(c(0.01746835,
+           0.05578325,
+           0.082330509,
+           0.168175614,
+           0.502288412,
+           0.996624604,
+           2.00159007), c(4.892106097,
+                          2.402976112,
+                          1.501694021,
+                          0.450564175,
+                          0.059962052,
+                          0.026787035,
+                          0.019994629), pch=16, col= "#0072B2")
+  
+}
+  
+ 
+  #Wilke 1991
+  plot(results2$time,
+        results2$PL,
+        type = "l",
+        col = "#CC79A7",
+        xlab = "Time [h]",
+        ylab = "Plasma Concentration [umol/L]",
+        log = "y"
+        )
+  points(c(0.01300813,
+           0.240650407,
+           0.500813008,
+           0.73495935,
+           2.061788618,
+           3.752845528,
+           6.289430894), c(4.125245529,
+                           0.670638935,
+                           0.147577868,
+                           0.131922822,
+                           0.029357734,
+                           0.009565541,
+                           0.016022693), pch=16, col= "#CC79A7")
+  
+  #Ku 1997
+  lines(results3$time,
+        results3$PL,
+        type = "l",
+        col = "#009E73",
+        xlab = "Time [h]",
+        ylab = "Plasma Concentration [umol/L]",
+        log = "y", # set y-axis to log scale
+        )
+  points(c(0.01746835,
+           0.05578325,
+           0.082330509,
+           0.168175614,
+           0.502288412,
+           0.996624604,
+           2.00159007), c(4.892106097,
+                          2.402976112,
+                          1.501694021,
+                          0.450564175,
+                          0.059962052,
+                          0.026787035,
+                          0.019994629), pch=16, col= "#009E73")
+  
+  #Hu2007
+  lines(results5$time,
+        results5$PL,
+        type = "l",
+        col = "#0072B2",
+        xlab = "Time [h]",
+        ylab = "Plasma Concentration [umol/L]",
+        log = "y", # set y-axis to log scale
+        )
+  points(c(0,
+           1.862068966,
+           4.034482759,
+           23.89655172,
+           48.10344828,
+           95.89655172), c(1.940179566,
+                           0.045342506,
+                           0.021803849,
+                           0.014414835,
+                           0.006714481,
+                           0.005547063), pch=16, col= "#0072B2")
+  
+
+  plot(results$time,
+       results$PL,
+       type = "l",
+       col = "#CC79A7",
+       xlab = "Time [h]",
+       ylab = "Plasma Concentration [umol/L]",
+       log = "y"
+  )
+  
+  
+#liver plot----
 plot(
   results$time,
   results$Cli_ec+results$Cli_ict,
   type = "l",
-  col = "blue",
+  col = "lightblue",
   xlab = "Time [h]",
   ylab = "Liver Concentration [umol/L]",
   log = "y", # set y-axis to log scale
 )
 points(2, 8.365, pch=16, col= "#0072B2") #10 mg/kg Ku 1997
+points(c(1,
+         2,
+         3,
+         5,
+         24,
+         48,
+         96), c(32.18530244,
+                25.56569447,
+                19.65042194,
+                13.24168672,
+                6.421812105,
+                4.187389008,
+                2.642063849), pch=16, col= "#CC79A7") #Hu 2007
 
-#kidney plot
+
+
+#kidney plot----
 plot(
   results$time,
   results$Cki_ec+results$Cki_ict,
@@ -1246,19 +1457,103 @@ plot(
 )
 points(2, 13.6, pch=16, col= "#0072B2") #10 mg/kg Ku 1997
 
-#heart plot
+#heart plot----
+Heart <- (results_2hinf$Che_ec+results_2hinf$Cmyo_ict+results_2hinf$Cother_ict)
+
+{SummaryHeart <- data.frame(
+  Timerun=(results$time),
+  Median=(Heart),
+  Lower=(Heart/2),
+  Upper=(Heart*2)
+)
+  #Order data
+  SummaryHeart2 <- SummaryHeart2[order(SummaryHeart2$Timerun,SummaryHeart2$Median),]
+}  
+{SummaryHeart2 <- data.frame(
+    Timerun=(results_2hinf$time),
+    Median=(Heart),
+    Lower=(Heart/2),
+    Upper=(Heart*2)
+  )
+    #Order data
+    SummaryHeart2 <- SummaryHeart2[order(SummaryHeart2$Timerun,SummaryHeart2$Median),]
+    
+  
+  #plot
+    plot(results$time,SummaryHeart$Median,ylim=c(min(0.1),max(100)),log='y',xlab="Time (h)",ylab="DOX Total Heart Concentration (µM)", type="n", main="DOX Heart Concentration, IV inf 1h 30mg/m2/week") # set y-axis tick marks
+    lines(times,SummaryHeart$Upper,col="darkgrey", type="l",lwd=2)
+    lines(times,SummaryHeart$Lower,col="darkgrey", type="l",lwd=2)
+  #lines(infusion_schedule, results$PL,lty=3,col="black",lwd=1)
+    polygon(c(times, rev(times)), c(SummaryHeart$Upper, rev(SummaryHeart$Lower)),
+          col = "grey90", lwd=2, border = NA)
+  #lines(times,SummaryHeart$Uppermax,lty=3,col="black",lwd=1)
+  #lines(times,SummaryHeart$Lowermin,lty=3,col="black",lwd=1)
+    lines(times,SummaryHeart$Median,col="darkred",type="l",lty=8,lwd=1)
+    plot(results_1hinf$time,SummaryHeart2$Median,ylim=c(min(0.1),max(100)),log='y',xlab="Time (h)",ylab="DOX Total Heart Concentration (µM)", main="DOX Heart Concentration, IV inf 1h 30mg/m2/week",col="darkcyan", type="l",lwd=2)
+  #legend(900, 500, legend=c("Hu 2007","2 mg/kg IV bolus,"),
+        #pch=c(16,NA),lty=c(NA,1),col=c("#009E73","darkred"), cex=c(1,1))
+}  
+  
+{ points(c(1,
+           2,
+           5,
+           24,
+           48,
+           96), c(7.605922997,
+                  11.10321124,
+                  11.45137458,
+                  5.020902646,
+                  2.657970932,
+                  2.109317106), pch=16, col= "#009E73") #Hu 2007
+  
+}
+
 plot(
   results$time,
   results$Che_ec+results$Cmyo_ict+results$Cother_ict,
   type = "l",
-  col = "blue",
+  col = "#CC79A7",
   xlab = "Time [h]",
-  ylab = "Heart Concentration [umol/L]",
+  ylab = "DOX Total Heart Concentration [umol/L]",
+  main = "DOX Heart Concentration",
   log = "y", # set y-axis to log scale
 )
+
+lines(
+  results5$time,
+  results5$Che_ec+results5$Cmyo_ict+results5$Cother_ict,
+  type = "l",
+  col = "#009E73",
+  log = "y", # set y-axis to log scale
+)
+
+
+
+
+
 points(2, 5.26, pch=16, col= "#0072B2") #10 mg/kg Ku 1997
 
-#lung plot
+points(c(3, 96, 168, 336, 504), c(3.841766329,
+                                  0.441582337,
+                                  0.296228151,
+                                  0.082796688,
+                                  0.051517939), pch=16, col= "#CC79A7") #Timour 1988
+
+ points(c(1,
+         2,
+         5,
+         24,
+         48,
+         96), c(7.605922997,
+                11.10321124,
+                11.45137458,
+                5.020902646,
+                2.657970932,
+                2.109317106), pch=16, col= "#CC79A7") #Hu 2007
+
+
+
+#lung plot----
 plot(
   results$time,
   results$Clu_ec+results$Clu_ict,
@@ -1271,7 +1566,7 @@ plot(
 points(2, 8.6, pch=16, col= "#0072B2") #10 mg/kg Ku 1997
 
 
-#muscle plot
+#muscle plot----
 plot(
   results$time,
   results$Cmu_ec+results$Cmu_ict,
@@ -1283,7 +1578,7 @@ plot(
 )
 points(2, 0.814, pch=16, col= "#0072B2") #10 mg/kg Ku 1997
 
-#Gut plot
+#Gut plot----
 plot(
   results$time,
   results$Cgu_ec+results$Cgu_ict,
@@ -1355,6 +1650,19 @@ points(c(0.01300813,
                            0.037558186,
                            0.035936459,
                            0.030120208), pch=16, col= "#009E73") 
+  
+  #Hu 2007 2mg/kg bolus
+  points(c(0,
+           1.862068966,
+           4.034482759,
+           23.89655172,
+           48.10344828,
+           95.89655172), c(1.940179566,
+                           0.045342506,
+                           0.021803849,
+                           0.014414835,
+                           0.006714481,
+                           0.005547063), pch=16, col= "#009E73") 
   
   
 #human clinical data ----  
@@ -1456,12 +1764,13 @@ plot5 <-ggplot(data=data.frame(results), aes(x=time))+
   geom_line(aes(y=Csk_ec,col= "Cskin"),lty=1,size=1.5)+
   geom_line(aes(y=Che_ec,col= "Cheart"),lty=1,size=1.5)+
   geom_line(aes(y=Csp_ec,col= "Cspleen"),lty=1,size=1.5)+
+  geom_line(aes(y=Cpa_ec,col= "Cpancreas"),lty=1,size=1.5)+
   geom_line(aes(y=Cre_ec,col= "Crest"),lty=1,size=1.5)+
   ylab(" Concentration [umol/L]")+ xlab("Time (hour)")+
-  scale_x_continuous(limits = c(0, 5))+
-  scale_fill_manual( breaks = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Crest"),
-                     values = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00","#CC79A7"),
-                     labels = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Crest"))+
+  scale_x_continuous(limits = c(0, 500))+
+  scale_fill_manual( breaks = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Cpancreas", "Crest"),
+                     values = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00","#CC79A7","#6600FF"),
+                     labels = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Cpancreas", "Crest"))+
   theme_bw()+theme(text=element_text(size=15),plot.margin = unit(c(5,5,5,5),"mm"))+#changed all plot margins from 5 to 10
   labs(title="EC concentration of organs", size=1)
 plot5
@@ -1480,12 +1789,13 @@ plot6 <-ggplot(data=data.frame(results), aes(x=time))+
   geom_line(aes(y=Csk_ict,col= "Cskin"),lty=1,size=1.5)+
   geom_line(aes(y=Cmyo_ict+Cother_ict,col= "Cheart"),lty=1,size=1.5)+
   geom_line(aes(y=Csp_ict,col= "Cspleen"),lty=1,size=1.5)+
+  geom_line(aes(y=Cpa_ict,col= "Cpancreas"),lty=1,size=1.5)+
   geom_line(aes(y=Cre_ict,col= "Crest"),lty=1,size=1.5)+
   ylab(" Concentration [umol/L]")+ xlab("Time (hour)")+
-  scale_x_continuous(limits = c(0, 5))+
-  scale_fill_manual( breaks = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Crest"),
-                     values = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00","#CC79A7"),
-                     labels = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Crest"))+
+  scale_x_continuous(limits = c(0, 500))+
+  scale_fill_manual( breaks = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Cpancreas", "Crest"),
+                     values = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00","#CC79A7","#6600FF"),
+                     labels = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Cpancreas", "Crest"))+
   theme_bw()+theme(text=element_text(size=15),plot.margin = unit(c(5,5,5,5),"mm"))+#changed all plot margins from 5 to 10
   labs(title="IC concentration of organs", size=1)
 plot6
@@ -1504,17 +1814,44 @@ plot7 <-ggplot(data=data.frame(results), aes(x=time))+
   geom_line(aes(y=Csk_ec+Csk_ict,col= "Cskin"),lty=1,size=1.5)+
   geom_line(aes(y=Che_ec+Cmyo_ict+Cother_ict,col= "Cheart"),lty=1,size=1.5)+
   geom_line(aes(y=Csp_ec+Csp_ict,col= "Cspleen"),lty=1,size=1.5)+
+  geom_line(aes(y=Cpa_ec+Cpa_ict,col= "Cpancreas"),lty=1,size=1.5)+
   geom_line(aes(y=Cre_ec+Cre_ict,col= "Crest"),lty=1,size=1.5)+
   ylab(" Concentration [umol/L]")+ xlab("Time (hour)")+
-  scale_x_continuous(limits = c(10, 250))+
-  scale_y_continuous(limits = c(0, 0.5))+
-  scale_fill_manual( breaks = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Crest"),
-                     values = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00","#CC79A7"),
-                     labels = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Crest"))+
+  scale_x_continuous(limits = c(0, 10))+
+  scale_fill_manual( breaks = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Cpancreas", "Crest"),
+                     values = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00","#CC79A7","#6600FF"),
+                     labels = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Cpancreas", "Crest"))+
   theme_bw()+theme(text=element_text(size=15),plot.margin = unit(c(5,5,5,5),"mm"))+#changed all plot margins from 5 to 10
   labs(title="Total concentration of organs", size=1)
 plot7
 ggplotly(plot7)
+
+plot8 <-ggplot(data=data.frame(results), aes(x=time))+
+  geom_line(aes(y=Cad_ec+Cad_ict,col="Cadipose"),lty=1,size=1.5)+
+  geom_line(aes(y=Cbo_ec+Cbo_ict,col= "Cbone"),lty=1,size=1.5)+
+  geom_line(aes(y=Cbr_ec+Cbr_ict,col= "Cbrain"),lty=1,size=1.5)+
+  geom_line(aes(y=Cgu_ec+Cgu_ict,col= "Cgut"),lty=1,size=1.5)+
+  geom_line(aes(y=Cki_ec+Cki_ict,col= "Ckidney"),lty=1,size=1.5)+
+  geom_line(aes(y=Cli_ec+Cli_ict,col= "Cliver"),lty=1,size=1.5)+
+  geom_line(aes(y=Clu_ec+Clu_ict,col= "Clung"),lty=1,size=1.5)+
+  geom_line(aes(y=Cmu_ec+Cmu_ict,col= "Cmuscle"),lty=1,size=1.5)+
+  geom_line(aes(y=Csk_ec+Csk_ict,col= "Cskin"),lty=1,size=1.5)+
+  geom_line(aes(y=Che_ec+Cmyo_ict+Cother_ict,col= "Cheart"),lty=1,size=1.5)+
+  geom_line(aes(y=Csp_ec+Csp_ict,col= "Cspleen"),lty=1,size=1.5)+
+  geom_line(aes(y=Cpa_ec+Cpa_ict,col= "Cpancreas"),lty=1,size=1.5)+
+  geom_line(aes(y=Cre_ec+Cre_ict,col= "Crest"),lty=1,size=1.5)+
+  ylab(" Concentration [umol/L]")+ xlab("Time (hour)")+
+  scale_x_continuous(limits = c(0, 500))+
+  scale_y_log10(limits = c(0.000001,10))+
+  scale_fill_manual( breaks = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Cpancreas", "Crest"),
+                     values = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00","#CC79A7","#6600FF"),
+                     labels = c("Cadipose","Cbone","Cbrain","Cgut","Ckidney","Cliver","Clung","Cmuscle","Cskin","Cheart","Cspleen","Cpancreas", "Crest"))+
+  theme_bw()+theme(text=element_text(size=15),plot.margin = unit(c(5,5,5,5),"mm"))+#changed all plot margins from 5 to 10
+  labs(title="Total concentration of organs", size=1)
+plot8
+ggplotly(plot8)
+
+
 
 {
 #Evaluate the effect of Kd/ Koff (negligible effect)
@@ -1549,7 +1886,7 @@ changedpars2<-within(params, {
   Kon_cardiolipin <- Koff_cardiolipin / Kd_cardiolipin
 })    
 
-# executing the additional simulations
+# executing the additional simulations----
 doutder1<-NULL
 doutder1<-data.frame(ode(y = state,
                            times = times,
@@ -1766,7 +2103,7 @@ plot_Myoict_concentration
 ggplotly(plot_Myoict_concentration)
 }
 
-# 4.3 Application of pksensi in sensitivity analysis
+# 4.3 Application of pksensi in sensitivity analysis----
 # 1. Set parameter distribution (assign parms, dist, q.qarg)
 parameters <- c(
   "BP",
@@ -1865,11 +2202,177 @@ q.arg <- list(list(0.115, 11.5),
               list(0.066,6.6),
               list(2.997,299.7))
 
+  #mtDNA concentration calcalation (umol/L)----
+  #Human Cell amount per organ
+  # br_cell <- 3 * 10^11
+  # lu_cell <- 2.9 * 10^11
+  # li_cell <- 3 * 10^11
+  # ki_cell <- 10^10
+  # bo_cell <- 10^9
+  # he_cell <- 6 * 10^9
+  # mu_cell <- 1.5 * 10^10
+  # pa_cell <- 1.5 * 10^9
+  # 
+  # vol_cell_br <- (Vbr*8/br_cell)
+  # vol_cell_lu <- (Vlu/lu_cell) * 10^12 # [uM^3 or nL]
+  # vol_cell_li <- 3000 #[uM^3]
+  # vol_cell_gu <- 1400 #[uM^3]
+  # vol_cell_ki <- (Vki/ki_cell) * 10^12 # [uM^3 or nL]
+  # vol_cell_bo <- 4000 #[uM^3]
+  # vol_cell_he <- 15000 #[uM^3]
+  # vol_cell_mu <- (Vmu/mu_cell) * 10^12 # [uM^3 or nL]
+  # vol_cell_pa <- 1000 #[uM^3]
+  # vol_cell_ad <- 600000 #[uM^3]
+  # 
+  # #mtdna/nDNA ratio according to [Regionalized Pathology Correlates with Augmentation of mtDNA Copy Numbers in a Patient with Myoclonic Epilepsy with Ragged-Red Fibers (MERRF-Syndrome)]
+  # ratio_lung <- 34
+  # ratio_liver <- 470
+  # ratio_skin <- 75
+  # ratio_adipose <- 75
+  # ratio_brain <- 191
+  # ratio_kidney <- 390
+  # ratio_heart <- 380
+  # 
+  
+  
+  # cell_array <- c(br_cell, lu_cell, li_cell, ki_cell, bo_cell, he_cell, mu_cell, pa_cell)
+  
+  # Assumption
+  # gu_cell <- mean(cell_array)
+  # ad_cell <- mean(cell_array)
+  # sk_cell <- mean(cell_array)
+  # sp_cell <- mean(cell_array)
+  # re_cell <- mean(cell_array)
+  # 
+  #mtDNA content [ug per kg organ] [Veltri et al 1990]
+  # li_cell <- 52/1000
+  # ki_cell <- 47/1000
+  # he_cell <- 36/1000
+  # br_cell <- 23/1000
+  
+  
+  #mtDNA copy numbers according to [Tissue-specific mtDNA abundance from exome data and its correlation with mitochondrial transcription, mass and respiratory activity]
+  # cn_li <- 2112
+  # cn_he <- 6216
+  # cn_ki <- 1162
+  # cn_mu <- 3230
+  # cn_br <- 1892
+  # cn_lu <- 250
+  # 
+  # cn_array <- c(cn_li, cn_he, cn_ki, cn_mu, cn_br, cn_lu)
+  # 
+  # Assumption
+  # cn_bo <- mean(cn_array)
+  # cn_gu <- mean(cn_array)
+  # cn_ad <- mean(cn_array)
+  # cn_sk <- mean(cn_array)
+  # cn_sp <- mean(cn_array)
+  # cn_re <- mean(cn_array)
+  # 
+  
+  #Copy number multiplied by base pair lenght. Multiply by BP molecular weight, divide by mol to get
+  #number of bps. 
+  
+  
+  # mtDNA_li <- (cn_li * 16500) * (650 / (6.022 * 10^23)) * li_cell / 8 * 1000000 / 650 / Vli
+  
+  #ug
+  
+  
+  
+  
+  
+  #  1 ng of mtDNA corresponds to approximately 1.52 x 10^-9 μmol, assuming a molecular weight of 6.6 x 10^5 g/mol
+  
+  
+  
+  # mtDNA_li <- (li_cell * (cn_li * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vli
+  # mtDNA_he <- (he_cell * (cn_he * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vhe  
+  # mtDNA_ki <- (ki_cell * (cn_ki * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vki  
+  # mtDNA_bo <- (bo_cell * (cn_bo * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vbo
+  # mtDNA_gu <- (gu_cell * (cn_gu * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vgu 
+  # 
+  # mtDNA_mu <- (mu_cell * (cn_mu * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vmu
+  # mtDNA_ad <- (ad_cell * (cn_ad * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vad 
+  # mtDNA_sk <- (sk_cell * (cn_sk * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vsk 
+  # 
+  # mtDNA_br <- (br_cell * (cn_br * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vbr 
+  # mtDNA_lu <- (lu_cell * (cn_lu * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vlu 
+  # mtDNA_sp <- (sp_cell * (cn_sp * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vsp 
+  # mtDNA_re <- (re_cell * (cn_re * 330 * 16535/ (6.022 * 10^14)) * (1.52 * 10^-9) ) / Vre
+
+#total plasma plot ----
+Plasma <- (results$PL)
+{SummaryPlasma <- data.frame(
+  Timerun=(results$time),
+  Median=(Plasma),
+  Lower=(Plasma/2),
+  Upper=(Plasma*2)
+)
+  #Order data
+  SummaryPlasma <- SummaryPlasma[order(SummaryPlasma$Timerun,SummaryPlasma$Median),]
+  
+  #plot
+  Plasma_Hu2007 <-
+    { plot(times,SummaryPlasma$Median,ylim=c(min(0.001),max(10)),log='y',xlab="Time (h)",ylab="DOX Plasma Concentration (µM)", type="n", main="DOX Plasma Concentration")
+      lines(times,SummaryPlasma$Upper,col="darkgrey", type="l",lwd=2)
+      lines(times,SummaryPlasma$Lower,col="darkgrey", type="l",lwd=2)
+      polygon(c(times, rev(times)), c(SummaryPlasma$Upper, rev(SummaryPlasma$Lower)),
+              col = "grey90", lwd=2, border = NA)
+      #lines(times,SummaryPlasma$Uppermax,lty=3,col="black",lwd=1)
+      #lines(times,SummaryPlasma$Lowermin,lty=3,col="black",lwd=1)
+      lines(times,SummaryPlasma$Median,col="darkred",type="l",lwd=2)
+      legend(60, 1, legend=c("Hu 2007","2 mg/kg IV bolus"),
+             pch=c(16,NA),lty=c(NA,1),col=c("#009E73","darkred"), cex=c(1,1))
+      points(c(0,
+               1.862068966,
+               4.034482759,
+               23.89655172,
+               48.10344828,
+               95.89655172), c(1.940179566,
+                               0.045342506,
+                               0.021803849,
+                               0.014414835,
+                               0.006714481,
+                               0.005547063), pch=16, col= "#009E73") }
+}
 
 
+#total heart plot----
+Heart <- (results$Che_ec+results$Cmyo_ict+results$Cother_ict)
 
-
-
-
+{SummaryHeart <- data.frame(
+  Timerun=(results$time),
+  Median=(Heart),
+  Lower=(Heart/2),
+  Upper=(Heart*2)
+)
+  #Order data
+  SummaryHeart <- SummaryHeart[order(SummaryHeart$Timerun,SummaryHeart$Median),]
+  
+  #plot
+  plot(times,SummaryHeart$Median,ylim=c(min(0.5),max(50)),log='y',xlab="Time (h)",ylab="DOX Total Heart Concentration (µM)", type="n", main="DOX Heart Concentration") # set y-axis tick marks
+  lines(times,SummaryHeart$Upper,col="darkgrey", type="l",lwd=2)
+  lines(times,SummaryHeart$Lower,col="darkgrey", type="l",lwd=2)
+  polygon(c(times, rev(times)), c(SummaryHeart$Upper, rev(SummaryHeart$Lower)),
+          col = "grey90", lwd=2, border = NA)
+  #lines(times,SummaryHeart$Uppermax,lty=3,col="black",lwd=1)
+  #lines(times,SummaryHeart$Lowermin,lty=3,col="black",lwd=1)
+  lines(times,SummaryHeart$Median,col="darkred",type="l",lwd=2)
+  legend(60, 30, legend=c("Hu 2007","2 mg/kg IV bolus"),
+         pch=c(16,NA),lty=c(NA,1),col=c("#009E73","darkred"), cex=c(1,1))
+  points(c(1,
+           2,
+           5,
+           24,
+           48,
+           96), c(7.605922997,
+                  11.10321124,
+                  11.45137458,
+                  5.020902646,
+                  2.657970932,
+                  2.109317106), pch=16, col= "#009E73") #Hu 2007
+  
+}
 
 
