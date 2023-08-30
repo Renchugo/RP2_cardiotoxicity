@@ -1,7 +1,5 @@
-# Based on V 2.13.1
-# The concentration ratio of myo and other (PER for other is set to 1000 lower than myo)
-# The blood cell intracellular binding
-# Kd only has a little negligible effect
+# Based on V 2.17
+# The local sensitivity analysis has performed
 rm(list=ls(all=TRUE))
 
 #REQUIRED PACKAGES:
@@ -16,11 +14,12 @@ rm(list=ls(all=TRUE))
   require(ggquickeda)
   require(pksensi)
   require(sensitivity)
+  require(FME)
 }
 
 {
-  t_end <- 168 #[h] time of the end of simulation
-  times <- seq(0, t_end, by = 1) #time of simulation
+  t_end <- 48 #[h] time of the end of simulation
+  times <- seq(0, t_end, by = 0.1) #time of simulation
   
   pKa <- 8.46 # [amine]
   MW <- 543.52 # g/mol
@@ -33,10 +32,10 @@ rm(list=ls(all=TRUE))
   BSA <- weight ^ 0.425 * height ^ 0.725 * 0.007184 #[m2] Body surface area according to [DuBois-DuBois 1916]
   
   oral_dose <- 0 #[mg] oral bolus dose
-  inf_dose_mg <- 15 * BSA #【mg】
+  inf_dose_mg <- 40 * BSA #【mg】
   
   inf_dose <- (inf_dose_mg * 0.001 / MW ) * 1000000 # [umol]
-  inf_time <- 5/60 #[h] infusion time
+  inf_time <- 1/60 #[h] infusion time
   
   # Define the infusion schedule
   num_doses <- 1 # Number of doses to be administered
@@ -1020,17 +1019,66 @@ out <-
 
 results <- data.frame(out)
 
+pars <- c(BP = 1.150,
+          fup = 0.260,
+          Kon_cardiolipin = 7641.000,
+          Koff_cardiolipin = 30564.000,
+          Kon_DNA= 9462.539,
+          Koff_DNA= 30564.000,
+          Kon_mtDNA = 30564.000,
+          Koff_mtDNA= 30564.000,
+          CL_renal = 0.660,
+          CL_hepatic =29.970)  # Replace with your actual parameters
+
+my_function <- function(parameters) {
+  # Extract relevant information from the data list
+  y = state
+  times = times
+  # Run the ODE solver
+  out <- ode(y = state,
+             times = times,
+             func = PBPKModel,
+             parm = parameters,
+             hmax= 0.01,
+             rtol = 1e-8,
+             atol = 1e-8)
+  
+  # Optionally convert the output to a data.frame
+  out_df <- as.data.frame(out)
+  
+  return(out_df)
+}
+
+
+
+locSens <- sensFun(
+  func = my_function,
+  parms = parameters,
+  sensvar="PL", 
+  senspar = names(parameters),
+  tiny=1e-5
+)
+
+Sen_1 <- summary(locSens)
+
+theta <- parameters[abs(Sen_1$Mean) >1.2*mean(abs(Sen_1$Mean))]
+theta
+
+plot(locSens, legpos="topright", lwd=2)
+
+
+
 {
 # AUC
 # The trapezoidal rule can be implemented in R as a function:
-trapz <- function(x, y) {
+AUC <- function(x, y) {
   dx <- diff(x)
   y_mid <- (y[-length(y)] + y[-1]) / 2
   sum(dx * y_mid)
 }
 
 # Calculate AUC using trapezoidal rule
-auc_plasma <- trapz(results[, "time"], results[, "PL"]) #umol/L/h
+auc_plasma <- AUC(results[, "time"], results[, "PL"]) #umol/L/h
 }
 
 plot(
@@ -1167,6 +1215,9 @@ ggplotly(plot7)
   
   #Camaggi 1988 Dose:60 bolus Age:42-72 Cancer
   points(c(0.25,0.5,1,2,4,8,12,24,36,48,72,96,120,144,168), c(1.1339,0.1991,0.0983,0.0647,0.0473,0.04,0.0291,0.0246,0.0178,0.015,0.0113,0.0079,0.0049,0.0039,0.0031), pch=16, col="#D55E00")
+  # AUC mean : 3.631697086 （0-168 h) unit: umol*h/L
+  # AUC prediction : 4.184293
+  
   #Benjamin, 1973 Dose:60 ADT: 1-5min Cancer
   points(c(0.083,0.167,0.25,0.33,0.5,0.75,1), c(5.66,2.6,1.31,0.753,0.353,0.236,0.197), pch=16, col="#CC79A7")
   #Johnson, 1992 Dose:60 bolus Age:20-76 Hepatocellular carcinoma
@@ -1174,10 +1225,15 @@ ggplotly(plot7)
   
   #Piscitelli, 1993 Dose:45 - 72 mg/m2 Age:55 ADT:1hour Cancer
   points(c(1.270,1.581,2.217,3.164,4.159,6.152,8.101,12.095,24.076,36.058,47.995),c(1.726,0.2,0.125,0.092,0.074,0.056,0.048,0.041,0.029,0.020,0.014), pch=16, col= "#0072B2")
+  # AUC mean : 3.374300854 （0-48 h) unit: umol*h/L
+  # AUC prediction : 3.409446
   
   
   #Muller, 1993 Dose:36 Bolus Age:70 Cancer
   points(c(0.083,0.167,0.25,0.5,1,0.95,1.166,2.149,8.054,24.292,48.563,71.766,96.037,119.79,144.299,168.528,216.022),c(2.728,2.00,1.066,0.552,0.149,0.09,0.061,0.0389,0.0279,0.02,0.018,0.012,0.0104,0.009,0.007,0.004,0.003), pch=16, col= "black")
+  # AUC mean : 2.936522539 （0-216 h) unit: umol*h/L
+  # AUC prediction : 2.547233
+  
   
   #Robert, 1983 Dose:35 Age:16-67 ADT:3min Cancer
   points(c(0.05,0.1,0.167,0.25,0.33), c(5.207,2.73,1.48,0.54,0.332), pch=16, col= "#009E73")
@@ -1185,26 +1241,49 @@ ggplotly(plot7)
   
   #Yoshida, 1994 Dose:0.9 mg/kg Age:47-72 ADT: 30min Cancer
   points(c(0.5742,0.8134,1,1.292,1.531,2.536,4.498,8.518,24.45,43.5),c(2.4638,0.2566,0.0896,0.0645,0.0568,0.0435,0.0323,0.0248,0.0152,0.0078), pch=16, col= "#009E73")
+  # AUC mean : 2.704691812 （0-infinity) unit: umol*h/L
+  # AUC prediction : 1.903271
+  
   
   #Speth, 1987 Dose:30 Q24x3 bolus age: 17-67 Cancer (+24,+48)
   points(c(0.04166667,0.25,0.5,1,2,7,24), c(4.388,0.977,0.289,0.259,0.187,0.139,0.086), pch=16, col="#000000")
   points(c(0.04166667,0.5,1,2,7,24), c(4.832,0.566,0.254,0.174,0.140,0.091), pch=16, col="#E69F00")
   points(c(0.04166667,0.333,1,2,7,24,48,120,144,168,192), c(4.633,0.321,0.256,0.220,0.192,0.086,0.066,0.0469,0.0544,0.0502,0.0309), pch=16, col= "#56B4E9")
   
+  # AUC mean : 4.231675007 （0-120 h) unit: umol*h/L
+  # AUC prediction : 2.019671
+  
+  
   #Erttmann 1988 Dose: 15 mg/m2 IV bolus Time:5min  Age: 5-24
   points(c(0.1133,0.1136,0.2152,0.2719,0.4531,0.09629,2.005,2.991,3.942,5.007,6.0153,7.545,7.998,8.247,8.496,9.176,10.071,10.671),c(1.979,0.772,0.275,0.165,0.0772,0.0494,0.0375,0.0296,0.026,0.022,0.0173,0.0162,0.01998,0.0184,0.0169,0.0173,0.0163,0.0144),pch=16, col= "black")
+  # AUC mean : 3.441085557 （0-00 h) unit: umol*h/L
+  # AUC prediction : 0.6370662
   
   
   #Speth, 1987 Dose:9 mg/m2 per day (36 mg/m2 in total) Advanced multiple myeloma
   points(c(0.945,2.833,5.722,19.484,23.837,27.65,47.769,56.62,71.71,81.86,93.53,95.61,99.58,105.61,118.34,142.52,167.57,191.52),c(0.00378,0.00392,0.0149,0.0172,0.0196,0.0255,0.0237,0.0248,0.0303,0.0279,0.0295,0.0314,0.0126,0.0136,0.0093,0.00577,0.00253,0.00329), pch=16, col= "black")
+  # AUC mean : 1.957681693 （0-191.52 h) unit: umol*h/L
+  # AUC prediction : 1.033859
+  
+  
+  
   #Muller, 1993 9 mg/m2 per day (36 mg/m2 in total) Age:70 Cancer
   points(c(24.04,48.33,71.87,96.40,96.13,97.92,100.23,104.62,120.12,144.38,168.63,216.14),c(0.0213,0.0222,0.0293,0.0261,0.0228,0.0196,0.0178,0.0175,0.0169,0.014,0.0104,0.008), pch=16, col= "#56B4E9")
+  # AUC mean : 2.697332107 （0-216 h) unit: umol*h/L
+  # AUC prediction : 2.52369
+  
+  
+  
   #Bugat 1989 Dose:15mg/m2/day (60 mg/m2 in total) infusion iv Age: 43-70 Cancer
   points(c(4.517,12.277,24.613,36.504,48.473,60.278,72.169,83.99,96.26,98.26,108.06,111.94,119.91,132.29,144.17),c(0.0194,0.0291,0.0358,0.0364,0.0321,0.0357,0.036,0.0437,0.0368,0.0277,0.0219,0.0212,0.0184,0.0162,0.015),pch=16, col= "black")
   
   
   #Kerr 1986 Dose: 40 mg/m2 IV bolus Age:median: 52 small cell lung cancer
   points(c(0.2695,0.4383,0.6395,1.0382,1.4328,2.0060,3.9918,5.9521,7.9841,9.9807,12.0130,15.9709,23.9269,47.9309),c(2.058,0.911,0.314,0.295,0.214,0.127,0.057,0.051,0.043,0.038,0.033,0.028,0.025,0.011),pch=16, col= "black")
+  # AUC mean : 1.655933763 unit: umol*h/L
+  # AUC prediction : 2.32617
+  
+  
   
   #Serum not plasma Gunvén 1986 Dose: 10mg Intraoperative IV injection Time: 5-10 min Gastrointestinal cancer
   points(c(0.127,0.277,0.657,0.988),c(2.054,0.362,0.151,0.056),pch=16, col= "black")
